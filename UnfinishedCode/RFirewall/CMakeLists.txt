@@ -7,6 +7,10 @@ else()
 endif()
 include("${RADICAL_PATH}/Radical-App-Build-Qt6.cmake")
 
+if(NOT DEFINED ArgProjectName OR ArgProjectName STREQUAL "")
+    get_filename_component(ArgProjectName "${CMAKE_SOURCE_DIR}" NAME)
+endif()
+
 set(THIS ${ArgProjectName})
 project(${THIS})
 
