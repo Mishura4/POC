@@ -2,12 +2,20 @@
 #include <QQuickStyle>
 #include <QLoggingCategory>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #define _uint_
 
 #include "Core.h"
 #include "Nexus.h"
 
+#ifdef _WIN32
 int main(int argc, char *argv[]) {
+#else
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow) {
+#endif
   int LnReValue = 0;
   Begin();
   Nexus<>::Start();
