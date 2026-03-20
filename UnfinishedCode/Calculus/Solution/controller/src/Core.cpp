@@ -1,44 +1,36 @@
 ﻿#include <cmath>
 #include <utility>
 #include <ranges>
-#include <QLineSeries>
+#include <QApplication>
 
 #include "Core.h"
 
-LineChart::LineChart(QObject *parent): QLineSeries(parent) {
-  _setTestPoints();
+Backend::Backend(QApplication &app) :
+  QObject(&app),
+  MoApp(&app) {
+  connect(&app, &QApplication::aboutToQuit, this, &Backend::quit);
 }
 
-LineChart::LineChart(QLineSeriesPrivate &dd, QObject *parent) : QLineSeries(dd, parent) {
-  _setTestPoints();
+void Backend::start() {
+  MoThread = std::jthread{[this]{ run(); }};
 }
 
-void LineChart::_clearPoints() {
-  clear();
-  MnMinY = 0;
-  MnMaxY = 0;
+void Backend::run() {
+  using namespace std::chrono;
+  using namespace std::chrono_literals;
+  auto startTime = steady_clock::now();
+  auto now = startTime;
+
+  do {
+    auto diff = now - startTime;
+    auto delta = duration_cast<duration<double>>(diff);
+    newData(delta.count(), QRandomGenerator::global()->bounded(0, 11));
+    std::this_thread::sleep_for(500ms);
+    now = steady_clock::now();
+  } while (!MbQuit.load(std::memory_order_acquire));
 }
 
-void LineChart::_addPointNoFlush(qreal x, qreal y) {
-  if (!std::isfinite(x) || !std::isfinite(y))
-      return;
-  
-  append(x, y);
-  MnMinX = std::min(MnMinX, x);
-  MnMaxX = std::max(MnMaxX, x);
-  MnMinY = std::min(MnMinY, y);
-  MnMaxY = std::max(MnMaxY, y);
-}
-
-void LineChart::_flushPoints() {
-  qDebug() << "Chart range: Min {" << MnMinX << ", " << MnMinY << "}, Max {" << MnMaxX << ", " << MnMaxY << '}';
-}
-
-void LineChart::_setTestPoints() {
-  setPoints(std::views::iota(0, 100) | std::views::transform([](int i) {
-    qreal x = i; // X values from 0 to 99
-    qreal y = QRandomGenerator::global()->bounded(
-        0, 11); // Y values between 0 and 10
-    return std::pair{x, y};
-  }));
+void Backend::quit() {
+  qDebug() << "Quitting";
+  MbQuit.store(true, std::memory_order_release);
 }

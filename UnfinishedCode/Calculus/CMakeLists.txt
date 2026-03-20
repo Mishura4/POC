@@ -31,4 +31,3 @@ list(APPEND PublicLibs "Timer")
 add_compile_definitions(QT_QML_DEBUG)
 
 BuildRadicalQt6Solution(PrivateLibs PublicLibs)
-

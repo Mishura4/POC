@@ -1,69 +1,31 @@
-﻿#include <QDebug>
-#include <QLineSeries>
+﻿#include <thread>
+#include <QDebug>
+#include <QtGraphs/QtGraphs>
 #include <QObject>
 #include <QRandomGenerator>
+#include <QtQml>
 
 #include <RawMapping.h>
 
-class LineChart : public QLineSeries {
+class Backend : public QObject
+{
   Q_OBJECT
-  Q_PROPERTY(qreal maxX READ maxX)
-  Q_PROPERTY(qreal maxY READ maxY)
-  QML_ELEMENT
 
 public:
-  explicit LineChart(QObject *parent = nullptr);
+  Backend(QApplication& app);
 
-  /**
-   * @brief Clear all points and replaces them with a range of points
-   * @param range Range of {x, y} tuples to set the line chart to
-   */
-  void setPoints(std::ranges::input_range auto&& range);
+  void start();
 
-  Q_INVOKABLE qreal maxX() const noexcept { return MnMaxX; }
-  Q_INVOKABLE qreal maxY() const noexcept { return MnMaxY; }
+  void run();
 
-protected:
-    LineChart(QLineSeriesPrivate &dd, QObject *parent = nullptr);
+signals:
+  void newData(qreal time, qreal value);
+
+public slots:
+  void quit();
 
 private:
-  /**
-   * @brief Internal function to remove all points from the line chart
-   */
-  void _clearPoints();
-
-  /**
-   * @brief Internal function to add a point to the line chart
-   * @param x X coordinate
-   * @param y Y coordinate
-   */
-  void _addPointNoFlush(qreal x, qreal y);
-
-  /**
-   * @brief Update variables and/or log information after adding points
-   */
-  void _flushPoints();
-
-  void _setTestPoints();
-
-  qreal MnMinX{0};
-  qreal MnMaxX{0};
-  qreal MnMinY{0};
-  qreal MnMaxY{0};
+  QApplication *MoApp;
+  std::atomic<bool> MbQuit = false;
+  std::jthread MoThread;
 };
-
-void LineChart::setPoints(std::ranges::input_range auto&& range) {
-  // Ensure we flush at scope exit even if an exception occurs
-  struct ScopeExit {
-    void operator()(LineChart* chart) const {
-      chart->_flushPoints();
-    }
-  };
-  auto onExit = std::unique_ptr<LineChart, ScopeExit>(this);
-
-  _clearPoints();
-
-  for (const auto& [x, y] : range) {
-    _addPointNoFlush(static_cast<qreal>(x), static_cast<qreal>(y));
-  }
-}

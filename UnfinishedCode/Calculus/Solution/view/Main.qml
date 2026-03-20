@@ -1,6 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtCharts 2.0
+import QtGraphs
 
 import com.github.Radicalware.Calculus
 
@@ -15,19 +15,39 @@ ApplicationWindow {
         id: flickable
         anchors.fill: parent
         contentHeight: window.height
-        contentWidth: Window.width * 2
-        
-        ChartView {
+        contentWidth: Window.width
+
+        GraphsView {
             id: chart
             anchors.fill: parent
-            antialiasing: true
-            
+            anchors.margins: 16
+
+            theme: GraphsTheme {
+                readonly property color c1: "#DBEB00"
+                readonly property color c2: "#373F26"
+                readonly property color c3: Qt.lighter(c2, 1.5)
+                colorScheme: GraphsTheme.ColorScheme.Dark
+                seriesColors: ["#2CDE85", "#DBEB00"]
+                grid.mainColor: c3
+                grid.subColor: c2
+                axisX.mainColor: c3
+                axisY.mainColor: c3
+                axisX.subColor: c2
+                axisY.subColor: c2
+                axisX.labelTextColor: c1
+                axisY.labelTextColor: c1
+            }
+
             property double xStartMin: 0
             property double xStartMax: 0
             property double xStartRatio: 0
             property double xStartSize: 0
+            property double xDataMin: 0
+            property double xDataMax: 0
+            property double yDataMin: 0
+            property double yDataMax: 0
 
-            ValueAxis {
+            axisX: ValueAxis {
                 id: axisX
                 min: 0
                 max: 99
@@ -42,18 +62,16 @@ ApplicationWindow {
                 }
             }
 
-            ValueAxis {
+            axisY: ValueAxis {
                 id: axisY
                 min: 0
                 max: 10
                 titleText: "Y Axis"
             }
 
-            LineChart {
+            LineSeries {
                 id: lineSeries
                 name: "Line"
-                axisX: axisX
-                axisY: axisY
             }
 
             // Handles Zoom
@@ -75,7 +93,7 @@ ApplicationWindow {
                 var centerXValue = wheel.x / chartWidth * axisRange + axisX.min;
                 var newMin = centerXValue - (centerXValue - axisX.min) / zoomFactor;
                 var newMax = centerXValue + (axisX.max - centerXValue) / zoomFactor;
-                        
+
                 if (!isNaN(newMin) && !isNaN(newMax) && newMax > 1) {
                     axisX.min = Math.max(0, newMin);
                     axisX.max = Math.min(maxX, newMax);
@@ -88,6 +106,31 @@ ApplicationWindow {
                 //var sizeIncrease = Math.max((chart.xStartRatio / (lnMax / lnMin)), 1)
                 console.log("increase:", sizeIncrease)
                 flickable.contentWidth = chart.xStartSize * sizeIncrease
+            }
+
+            function truncate() {
+                while (true) {
+                    if (lineSeries.count == 0)
+                        return;
+
+                    var first = lineSeries.at(0).x;
+                    var last = lineSeries.at(lineSeries.count - 1).x;
+
+                    if (last - first < 10)
+                        break;
+
+                    lineSeries.remove(0)
+                }
+                xDataMin = first;
+                xDataMax = last;
+            }
+
+            Connections {
+                target: backend
+                function onNewData(time: real, value: real) {
+                    lineSeries.append(time, value);
+                    chart.truncate();
+                }
             }
         } // ChartView
 
