@@ -3,53 +3,60 @@
 #include <QObject>
 #include <QRandomGenerator>
 
+#include <RawMapping.h>
+
 class LineChart : public QObject {
   Q_OBJECT
 public:
-  explicit LineChart(QObject *parent = nullptr) : QObject(parent) {
-    series = new QLineSeries();
-    // Randomize 100 line points
-    for (int i = 0; i < 100; ++i) {
-      qreal x = i; // X values from 0 to 99
-      qreal y = QRandomGenerator::global()->bounded(
-          0, 11); // Y values between 0 and 10
-      series->append(x, y);
-      //qDebug() << "Data point added: (" << x << "," << y << ")";
-    }
-  }
+  explicit LineChart(QObject *parent = nullptr);
 
-  Q_INVOKABLE QLineSeries *getSeries() const { return series; }
+  /**
+   * @brief Clear all points and replaces them with a range of points
+   * @param range Range of {x, y} tuples to set the line chart to
+   */
+  void setPoints(std::ranges::input_range auto&& range);
 
-  Q_INVOKABLE qreal maxX() const {
-    if (series->points().isEmpty()) {
-      qDebug() << "Series is empty, returning default maxX value 0.";
-      return 0; // Or another appropriate default value
-    }
-    qreal maxXValue = 0;
-    for (const QPointF &point : series->points()) {
-      if (!std::isnan(point.x()) && !std::isinf(point.x())) {
-        maxXValue = std::max(maxXValue, point.x());
-      }
-    }
-    //qDebug() << "Calculated maxX:" << maxXValue;
-    return maxXValue;
-  }
-
-  Q_INVOKABLE qreal maxY() const {
-    if (series->points().isEmpty()) {
-      qDebug() << "Series is empty, returning default maxY value 0.";
-      return 0; // Or another appropriate default value
-    }
-    qreal maxYValue = 0;
-    for (const QPointF &point : series->points()) {
-      if (!std::isnan(point.y()) && !std::isinf(point.y())) {
-        maxYValue = std::max(maxYValue, point.y());
-      }
-    }
-    //qDebug() << "Calculated maxY:" << maxYValue;
-    return maxYValue;
-  }
+  Q_INVOKABLE QLineSeries *getSeries() const noexcept { return MoSeries.get(); }
+  Q_INVOKABLE qreal maxX() const noexcept { return MnMaxX; }
+  Q_INVOKABLE qreal maxY() const noexcept { return MnMaxY; }
 
 private:
-  QLineSeries *series;
+  /**
+   * @brief Internal function to remove all points from the line chart
+   */
+  void _clearPoints();
+
+  /**
+   * @brief Internal function to add a point to the line chart
+   * @param x X coordinate
+   * @param y Y coordinate
+   */
+  void _addPointNoFlush(qreal x, qreal y);
+
+  /**
+   * @brief Update variables and/or log information after adding points
+   */
+  void _flushPoints();
+
+  std::unique_ptr<QLineSeries> MoSeries;
+  qreal MnMinX{0};
+  qreal MnMaxX{0};
+  qreal MnMinY{0};
+  qreal MnMaxY{0};
 };
+
+void LineChart::setPoints(std::ranges::input_range auto&& range) {
+  // Ensure we flush at scope exit even if an exception occurs
+  struct Flusher {
+    void operator()(LineChart* chart) const {
+      chart->_flushPoints();
+    }
+  };
+  auto onExit = std::unique_ptr<LineChart, Flusher>(this);
+
+  _clearPoints();
+
+  for (const auto& [x, y] : range) {
+    _addPointNoFlush(static_cast<qreal>(x), static_cast<qreal>(y));
+  }
+}
