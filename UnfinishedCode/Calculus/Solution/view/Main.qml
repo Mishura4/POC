@@ -2,6 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtCharts 2.0
 
+import com.github.Radicalware.Calculus
+
 ApplicationWindow {
     id: window
     visible: true
@@ -47,7 +49,7 @@ ApplicationWindow {
                 titleText: "Y Axis"
             }
 
-            LineSeries {
+            LineChart {
                 id: lineSeries
                 name: "Line"
                 axisX: axisX
@@ -68,7 +70,7 @@ ApplicationWindow {
                     zoomFactor = 1 / zoomFactor;
                 }
                 var chartWidth = chart.width;
-                var maxX = lineChart.maxX();
+                var maxX = lineSeries.maxX();
                 var axisRange = axisX.max - axisX.min;
                 var centerXValue = wheel.x / chartWidth * axisRange + axisX.min;
                 var newMin = centerXValue - (centerXValue - axisX.min) / zoomFactor;
@@ -102,14 +104,4 @@ ApplicationWindow {
             adjustContentX(flickable.horizontalVelocity);
         }
     } // Flickable
-
-    Component.onCompleted: {
-        var series = lineChart.getSeries();
-        if (series.count > 0) {
-            lineSeries.clear();
-            for (var i = 0; i < series.count; ++i) {
-                lineSeries.append(series.at(i).x, series.at(i).y);
-            }
-        }
-    }
 }
