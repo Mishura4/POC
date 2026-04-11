@@ -17,6 +17,18 @@ ApplicationWindow {
         contentHeight: window.height
         contentWidth: Window.width
 
+        Rectangle {
+            Button {
+                text: "Refresh"
+
+                onReleased: () => {
+                    backend.queryMarketData(new Date(), new Date(), (foo) => {
+
+                    });
+                }
+            }
+        }
+
         GraphsView {
             id: chart
             anchors.fill: parent
@@ -47,31 +59,41 @@ ApplicationWindow {
             property double yDataMin: 0
             property double yDataMax: 0
 
-            axisX: ValueAxis {
+            axisX: DateTimeAxis {
                 id: axisX
-                min: 0
-                max: 99
                 titleText: "X Axis"
-
-                Component.onCompleted: {
-                    chart.xStartMin = Math.max(1, axisX.min)
-                    chart.xStartMax = axisX.max
-                    chart.xStartRatio = axisX.max - Math.max(1, axisX.min)
-                    chart.xStartSize = window.width
-                    console.log("range: ", chart.xStartSize)
-                }
+                labelFormat: qsTr("hh:mm:ss")
+                min: dataModelMapper.model.minX ?? new Date(new Date().getTime() - 3600 * 24 * 1000)
+                max: dataModelMapper.model.maxX ?? new Date()
             }
 
             axisY: ValueAxis {
                 id: axisY
-                min: 0
-                max: 10
                 titleText: "Y Axis"
+                min: 0
+                max: dataModelMapper.model.maxY ?? 100
             }
 
             LineSeries {
                 id: lineSeries
                 name: "Line"
+            }
+
+            XYModelMapper {
+                id: dataModelMapper
+                model: backend.model ? backend.model : []
+                orientation: Qt.Vertical
+                series: lineSeries
+                xSection: 0
+                ySection: 1
+
+                onModelChanged: {
+                    console.log("model changed");
+                }
+
+                onXSectionChanged: {
+                    console.log("X changed");
+                }
             }
 
             // Handles Zoom
@@ -128,8 +150,8 @@ ApplicationWindow {
             Connections {
                 target: backend
                 function onNewData(time: real, value: real) {
-                    lineSeries.append(time, value);
-                    chart.truncate();
+                    // lineSeries.append(time, value);
+                    // chart.truncate();
                 }
             }
         } // ChartView

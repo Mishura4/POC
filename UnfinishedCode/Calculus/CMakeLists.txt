@@ -30,4 +30,13 @@ list(APPEND PublicLibs "Timer")
 
 add_compile_definitions(QT_QML_DEBUG)
 
+# add_subdirectory(Libs/qcoro)
+
+include_directories(
+    "${CMAKE_CURRENT_SOURCE_DIR}/Solution/controller/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Solution/controller/include/Models"
+)
+
 BuildRadicalQt6Solution(PrivateLibs PublicLibs)
+
+# target_link_libraries(${THIS} PUBLIC QCoro6::Coro QCoro6::Core)

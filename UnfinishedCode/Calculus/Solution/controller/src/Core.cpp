@@ -2,13 +2,17 @@
 #include <utility>
 #include <ranges>
 #include <QApplication>
+#include <nlohmann/json.hpp>
 
 #include "Core.h"
+#include "Models/MarketData.h"
 
-Backend::Backend(QApplication &app) :
-  QObject(&app),
-  MoApp(&app) {
-  connect(&app, &QApplication::aboutToQuit, this, &Backend::quit);
+namespace Calculus {
+
+Backend::Backend(QObject* parent) :
+  QObject(parent),
+  MoModel(new MarketDataModel(this)) {
+  connect(QApplication::instance(), &QApplication::aboutToQuit, this, &Backend::quit);
 }
 
 void Backend::start() {
@@ -18,7 +22,7 @@ void Backend::start() {
 void Backend::run() {
   using namespace std::chrono;
   using namespace std::chrono_literals;
-  auto startTime = steady_clock::now();
+  auto startTime = system_clock::now();
   auto now = startTime;
 
   do {
@@ -26,11 +30,45 @@ void Backend::run() {
     auto delta = duration_cast<duration<double>>(diff);
     newData(delta.count(), QRandomGenerator::global()->bounded(0, 11));
     std::this_thread::sleep_for(500ms);
-    now = steady_clock::now();
+    now = system_clock::now();
   } while (!MbQuit.load(std::memory_order_acquire));
+}
+
+void Backend::queryMarketData(QDateTime start, QDateTime end, QJSValue callback) {
+  auto engine = QQmlEngine::contextForObject(this)->engine();
+
+  if (!callback.isCallable()) {
+    engine->throwError(QJSValue::ErrorType::TypeError, "Invalid callback argument");
+    return;
+  }
+
+  runAsync([this, callback](std::vector<MarketPoint> values) {
+    callback.call(QJSValueList{ toJSVariant(values) });
+    MoModel->setPoints(std::move(values));
+  }, &Backend::doQueryMarketData, this, start, end);
 }
 
 void Backend::quit() {
   qDebug() << "Quitting";
   MbQuit.store(true, std::memory_order_release);
 }
+
+auto Backend::doQueryMarketData(QDateTime start, QDateTime end) -> std::vector<MarketPoint> {
+  auto engine = QQmlEngine::contextForObject(this)->engine();
+  using namespace std::chrono_literals;
+  auto now = std::chrono::utc_clock::now();
+  return std::vector<MarketPoint> {
+    { now - 10min, 100 },
+    { now - 9min, 100 },
+    { now - 8min, 200 },
+    { now - 7min, 300 },
+    { now - 6min, 500 },
+    { now - 5min, 800 },
+    { now - 4min, 1300 },
+    { now - 3min, 2100 },
+    { now - 2min, 3400 },
+    { now - 1min, 5500 },
+  };
+}
+
+} // namespace Calculus
