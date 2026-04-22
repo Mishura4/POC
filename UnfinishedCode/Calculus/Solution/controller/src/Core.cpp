@@ -37,7 +37,7 @@ void Backend::run() {
 void Backend::queryMarketData(QDateTime start, QDateTime end, QJSValue callback) {
   auto engine = QQmlEngine::contextForObject(this)->engine();
 
-  if (!callback.isCallable()) {
+  if (!callback.isUndefined() && !callback.isCallable()) {
     engine->throwError(QJSValue::ErrorType::TypeError, "Invalid callback argument");
     return;
   }

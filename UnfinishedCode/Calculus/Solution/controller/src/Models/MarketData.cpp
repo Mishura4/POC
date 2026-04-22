@@ -99,10 +99,6 @@ auto MarketDataModel::maxY() const noexcept -> QVariant {
 
 void MarketDataModel::_recalcMinMax() {
   using namespace std::chrono_literals;
-  auto prevMinX = minX();
-  auto prevMaxX = maxX();
-  auto prevMinY = minY();
-  auto prevMaxY = maxY();
   if (std::ranges::empty(_points)) {
     _maxXindex = -1;
     _minXindex = -1;
@@ -116,9 +112,6 @@ void MarketDataModel::_recalcMinMax() {
     auto [minY, maxY] = std::ranges::minmax_element(_points, std::less<>{}, tuple_get<1>);
     _minYindex = static_cast<int>(std::ranges::distance(_points.begin(), minY));
     _maxYindex = static_cast<int>(std::ranges::distance(_points.begin(), maxY));
-  }
-  if (prevMinX != _minXindex || prevMaxX != _maxXindex || prevMinY != _minYindex || prevMaxY != _maxYindex) {
-    emit boundsChanged();
   }
 }
 
@@ -135,8 +128,16 @@ void MarketDataModel::setPoints(Points points) {
   auto onExit = onScopeExit{[this] {
     endResetModel();
   }};
+  auto prevMinX = minX();
+  auto prevMaxX = maxX();
+  auto prevMinY = minY();
+  auto prevMaxY = maxY();
   _points = std::move(points);
   _recalcMinMax();
+
+  if (prevMinX != minX() || prevMaxX != maxX() || prevMinY != minY() || prevMaxY != maxY()) {
+    emit boundsChanged();
+  }
 }
 
 } // namespace Calculus

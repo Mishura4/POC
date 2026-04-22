@@ -8,6 +8,7 @@
 #include "Tools.h"
 
 namespace Calculus {
+
 class MarketPoint {
 public:
   using Value = uint64_t;
@@ -94,7 +95,6 @@ namespace Calculus {
 
 class MarketDataModel : public QAbstractTableModel {
   Q_OBJECT
-  QML_UNCREATABLE("foo");
   Q_PROPERTY(QVariant minX READ minX NOTIFY boundsChanged)
   Q_PROPERTY(QVariant maxX READ maxX NOTIFY boundsChanged)
   Q_PROPERTY(QVariant minY READ minY NOTIFY boundsChanged)

@@ -22,7 +22,7 @@ public:
   void start();
   void run();
 
-  Q_INVOKABLE void queryMarketData(QDateTime start, QDateTime end, QJSValue callback);
+  Q_INVOKABLE void queryMarketData(QDateTime start, QDateTime end, QJSValue callback = {});
 
   const MarketDataModel* model() const noexcept { return MoModel; }
 
