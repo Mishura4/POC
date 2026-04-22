@@ -34,7 +34,7 @@ public:
 
   auto time() const -> QmlTime;
 
-  auto getTime() const -> Time {
+  auto getTime() const noexcept -> Time {
     return MoTime;
   }
 
@@ -63,18 +63,16 @@ private:
   Value     MnValue;
 };
 
-}
+class PartialMarketPoint : public MarketPoint {
+public:
+  PartialMarketPoint(MarketPoint before, MarketPoint after, MarketPoint::Time time) noexcept;
 
-/// <summary>
-/// Specialization of std::less for ordering
-/// </summary>
-template <>
-struct std::less<Calculus::MarketPoint> {
-  using MarketPoint = Calculus::MarketPoint;
-  static constexpr bool operator()(const MarketPoint& a, const MarketPoint& b) noexcept {
-    return a.time() < b.time();
-  }
+private:
+  MarketPoint MoBefore;
+  MarketPoint MoAfter;
 };
+
+}
 
 template <>
 struct std::tuple_size<Calculus::MarketPoint> {
@@ -101,6 +99,12 @@ class MarketDataModel : public QAbstractTableModel {
   Q_PROPERTY(QVariant maxY READ maxY NOTIFY boundsChanged)
 
   using Points = std::vector<MarketPoint>;
+
+  struct PointSorter {
+    static constexpr bool operator()(const MarketPoint& a, const MarketPoint& b) noexcept {
+      return a.getTime() < b.getTime();
+    }
+  };
 
 public:
   using value_type = typename Points::value_type;
@@ -143,6 +147,11 @@ public:
   QVariant minY() const noexcept;
   QVariant maxY() const noexcept;
 
+  Q_INVOKABLE QJSValue getMinY(QDateTime minTime, QDateTime maxTime) const;
+  Q_INVOKABLE QJSValue getMaxY(QDateTime minTime, QDateTime maxTime) const;
+  // Q_INVOKABLE QVariant getPartialPoint(QDateTime time) const;
+  Q_INVOKABLE QJSValueList getBoundsY(QDateTime minTime, QDateTime maxTime) const;
+
   auto getMinX() const noexcept -> std::optional<X>;
   auto getMaxX() const noexcept -> std::optional<X>;
   auto getMinY() const noexcept -> std::optional<Y>;
@@ -152,7 +161,13 @@ signals:
   void boundsChanged();
 
 private:
-  void _recalcMinMax();
+  using Subrange = std::ranges::subrange<Points::const_iterator>;
+
+  auto getBefore(MarketPoint::Time time) const noexcept -> Points::const_iterator;
+  auto getPartialPoint(MarketPoint::Time time) const -> std::optional<PartialMarketPoint>;
+  auto getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange;
+
+  void _recalcMinMax() noexcept;
   template <typename NewPoints>
   void _updateMinMax(const NewPoints& range);
 

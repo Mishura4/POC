@@ -117,23 +117,38 @@ GraphsView {
         target: null
         dragThreshold: 0
         xAxis.onActiveValueChanged: (delta) => {
-            chart.drag(delta)
+            chart.drag(delta);
+        }
+
+        onGrabChanged: (transition, point) => {
+            if (transition === PointerDevice.UngrabExclusive || transition === PointerDevice.UngrabPassive) {
+                chart.cropY();
+            }
         }
     }
 
+    function cropY(minX = new Date(xVisualMin), maxX = new Date(xVisualMax)) {
+        let bounds = dataModelMapper.model.getBoundsY(minX, maxX);
+        if (bounds === undefined || bounds === null)
+            return;
+
+        yVisualMin = bounds[0];
+        yVisualMax = bounds[1];
+        console.log(`crop: {${bounds[0]}, ${bounds[1]}}`);
+    }
+
     function drag(delta) {
-        let target = xVisualMin + delta * xVisualUnit;
         let increment;
         if (delta < 0) {
+            let target = xVisualMax + delta * xVisualUnit;
             let max = xDataMax;
             let actual = Math.min(target, max);
-            increment = actual - xVisualMin;
-            console.log(`max: ${max} -- target: ${target} -- actual: ${actual} -- increment: ${increment}`)
+            increment = actual - xVisualMax;
         } else {
+            let target = xVisualMin + delta * xVisualUnit;
             let min = xDataMin;
             let actual = Math.max(target, min);
             increment = actual - xVisualMin;
-            console.log(`min: ${min} -- target: ${target} -- actual: ${actual} -- increment: ${increment}`)
         }
         xVisualMin += increment;
         xVisualMax += increment;
@@ -159,5 +174,6 @@ GraphsView {
         let newMax = Math.min(xDataMax, xVisualMax + rightDelta);
         xVisualMin = newMin;
         xVisualMax = newMax;
+        cropY();
     }
 } // ChartView

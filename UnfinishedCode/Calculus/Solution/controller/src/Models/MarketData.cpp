@@ -1,8 +1,38 @@
 #include "Models/MarketData.h"
 
 #include <iostream>
+#include <algorithm>
 
 namespace Calculus {
+
+namespace {
+
+using dseconds = std::chrono::duration<double>;
+using dstime = std::chrono::time_point<MarketPoint::Time::clock, dseconds>;
+
+QJSValue toJSValue(MarketPoint::Value value) {
+  return { static_cast<double>(value) / 100.0 };
+}
+
+template <typename R = void>
+auto lerp(std::floating_point auto factor, auto low, decltype(low) high) {
+  if constexpr (std::is_void_v<R>) {
+    return factor * (high - low) + low;
+  } else {
+    return static_cast<R>(factor * (high - low) + low);
+  }
+}
+
+template <typename R = double>
+auto invlerp(auto value, decltype(value) low, decltype(value) high) {
+  if constexpr (std::is_void_v<R>) {
+    return (value - low) / (high - low);
+  } else {
+    return static_cast<R>(value - low) / static_cast<R>(high - low);
+  }
+}
+
+}
 
 template <typename NewPoints>
 void MarketDataModel::_updateMinMax(const NewPoints &range) {
@@ -31,6 +61,15 @@ MarketPoint::MarketPoint(QDateTime time, Value value) noexcept :
 
 auto MarketPoint::time() const -> QDateTime {
   return QDateTime::fromStdTimePoint(clock_cast<std::chrono::system_clock>(getTime()));
+}
+
+PartialMarketPoint::PartialMarketPoint(MarketPoint before, MarketPoint after, Time time) noexcept :
+  MarketPoint(time, lerp(
+    invlerp<dseconds>(time, before.getTime(), after.getTime()),
+    before.getValue(), after.getValue())
+  ),
+  MoBefore(before), MoAfter(after) {
+
 }
 
 MarketDataModel::MarketDataModel(QObject *parent) noexcept
@@ -97,7 +136,101 @@ auto MarketDataModel::maxY() const noexcept -> QVariant {
   return _maxYindex < 0 ? QVariant() : _points[_maxYindex].value();
 }
 
-void MarketDataModel::_recalcMinMax() {
+auto MarketDataModel::getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange {
+  using clock = MarketPoint::Time::clock;
+  auto minUtcTime = clock_cast<clock>(minTime.toStdSysMilliseconds());
+  auto maxUtcTime = clock_cast<clock>(maxTime.toStdSysMilliseconds());
+  auto begin = std::ranges::lower_bound(
+    _points.begin(), _points.end(),
+    minUtcTime, std::less{}, &MarketPoint::getTime
+  );
+  auto end = std::ranges::upper_bound(
+    begin, _points.end(),
+    maxUtcTime, std::less{}, &MarketPoint::getTime
+  );
+  return Subrange{ begin, end };
+}
+
+QJSValue MarketDataModel::getMinY(QDateTime minTime, QDateTime maxTime) const {
+  auto subrange = getSubRange(minTime, maxTime);
+  if (std::ranges::empty(subrange)) {
+    return QJSValue{};
+  } else {
+    auto min = std::ranges::min(subrange | std::views::transform(&MarketPoint::getValue));
+    return toJSValue(min);
+  }
+}
+
+QJSValue MarketDataModel::getMaxY(QDateTime minTime, QDateTime maxTime) const {
+  auto subrange = getSubRange(minTime, maxTime);
+  if (std::ranges::empty(subrange)) {
+    return QJSValue{};
+  } else {
+    auto max = std::ranges::max(subrange | std::views::transform(&MarketPoint::getValue));
+    return toJSValue(max);
+  }
+}
+
+auto MarketDataModel::getBefore(MarketPoint::Time time) const noexcept -> Points::const_iterator {
+  return std::ranges::lower_bound(
+    _points.begin(), _points.end(),
+    time, std::less<>{}, &MarketPoint::getTime
+  );
+}
+
+auto MarketDataModel::getPartialPoint(MarketPoint::Time time) const -> std::optional<PartialMarketPoint> {
+  auto before = getBefore(time);
+  if (before == std::ranges::end(_points))
+    return std::nullopt;
+
+  auto it = before;
+  while (it->getTime() <= time) {
+    ++it;
+
+    if (it == _points.end())
+      return std::nullopt;
+  }
+  return std::optional<PartialMarketPoint>{ std::in_place, *before, *it, time };
+}
+
+QJSValueList MarketDataModel::getBoundsY(QDateTime minTime, QDateTime maxTime) const {
+  using clock = MarketPoint::Time::clock;
+  auto minUtcTime = clock_cast<clock>(minTime.toStdSysMilliseconds());
+  auto maxUtcTime = clock_cast<clock>(maxTime.toStdSysMilliseconds());
+  auto subrange = getSubRange(minTime, maxTime);
+
+  auto [itMin, itMax] = std::ranges::minmax_element(subrange, std::less<>{}, &MarketPoint::getTime);
+  if (itMin == _points.end())
+    return {};
+
+  auto min = *itMin;
+  auto max = *itMax;
+  if (subrange.begin() != _points.begin()) {
+    auto before = std::ranges::prev(subrange.begin());
+    if (before->getValue() < min.getValue()) {
+      auto partial = PartialMarketPoint(*before, *subrange.begin(), minUtcTime);
+      min = min.getValue() < partial.getValue() ? min : partial;
+    }
+  }
+
+  if (itMax == subrange.end()) // Special case when we are looking only at partial points
+    max = min;
+
+  if (subrange.end() != _points.end()) {
+    auto after = subrange.end();
+    auto last = std::ranges::prev(after);
+    if (after->getValue() > max.getValue()) {
+      auto partial = PartialMarketPoint(*last, *after, maxUtcTime);
+      max = max.getValue() > partial.getValue() ? max : partial;
+    }
+  }
+
+  double dMin = static_cast<double>(min.getValue() / 100.0);
+  double dMax = static_cast<double>(max.getValue() / 100.0);
+  return QJSValueList{ dMin, dMax };
+}
+
+void MarketDataModel::_recalcMinMax() noexcept {
   using namespace std::chrono_literals;
   if (std::ranges::empty(_points)) {
     _maxXindex = -1;
@@ -116,25 +249,25 @@ void MarketDataModel::_recalcMinMax() {
 }
 
 void MarketDataModel::addPoint(MarketPoint point) {
-  int row = static_cast<int>(_points.size());
-  _points.reserve(_points.size() + 1);
+  auto it = std::ranges::lower_bound(_points, point, PointSorter{});
+  int row = static_cast<int>(std::ranges::distance(_points.begin(), it));
+  _points.reserve(_points.size() + 1); // Reserve so that adding a point doesn't throw
   beginInsertRows(QModelIndex(), row, row + 1);
-  _points.push_back(point);
+  _points.insert(it, point); // Doesn't throw -- we reserved above
   endInsertRows();
 }
 
 void MarketDataModel::setPoints(Points points) {
-  beginResetModel();
-  auto onExit = onScopeExit{[this] {
-    endResetModel();
-  }};
   auto prevMinX = minX();
   auto prevMaxX = maxX();
   auto prevMinY = minY();
   auto prevMaxY = maxY();
+  std::ranges::sort(points, PointSorter{});
+  beginResetModel();
   _points = std::move(points);
-  _recalcMinMax();
+  endResetModel();
 
+  _recalcMinMax();
   if (prevMinX != minX() || prevMaxX != maxX() || prevMinY != minY() || prevMaxY != maxY()) {
     emit boundsChanged();
   }
