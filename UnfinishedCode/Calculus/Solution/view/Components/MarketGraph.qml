@@ -82,6 +82,11 @@ GraphsView {
         name: "Line"
     }
 
+    LineSeries {
+        id: lineSeries2
+        name: "Line 2"
+    }
+
     XYModelMapper {
         id: dataModelMapper
         model: backend.model ? backend.model : []
@@ -89,15 +94,16 @@ GraphsView {
         series: lineSeries
         xSection: 0
         ySection: 1
+    }
 
-        onModelChanged: {
-            console.log("model changed");
-        }
-
-        onXSectionChanged: {
-            console.log("X changed");
-        }
-    }   
+    XYModelMapper {
+        id: dataModelMapper2
+        model: backend.model ? backend.model : []
+        orientation: Qt.Vertical
+        series: lineSeries2
+        xSection: 2
+        ySection: 3
+    }
 
     // Handles Zoom
     WheelHandler {

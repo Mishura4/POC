@@ -58,6 +58,8 @@ public:
     return point.getValue();
   }
 
+  static double GetPartialValue(MarketPoint before, MarketPoint after, MarketPoint::Time time) noexcept;
+
 private:
   Time      MoTime;
   Value     MnValue;
@@ -118,7 +120,8 @@ public:
 
   enum class Role {
     Time,
-    Value
+    Value,
+    SMA
   };
 
   explicit MarketDataModel(QObject* parent = nullptr) noexcept;
@@ -132,8 +135,10 @@ public:
   void setPoints(Points points);
 
   QHash<int, QByteArray> roleNames() const override;
-  int rowCount(const QModelIndex &parent) const override { return static_cast<int>(_points.size()); }
-  int columnCount(const QModelIndex &parent) const override { return 2; }
+  int rowCount(const QModelIndex &parent) const override {
+    return static_cast<int>(_points.size());
+  }
+  int columnCount(const QModelIndex &parent) const override { return 4; }
   QVariant data(const QModelIndex &index, int role) const override;
 
   auto begin() noexcept -> iterator;
@@ -164,6 +169,7 @@ private:
   using Subrange = std::ranges::subrange<Points::const_iterator>;
 
   auto getBefore(MarketPoint::Time time) const noexcept -> Points::const_iterator;
+  auto getSimpleMovingAverage(Points::const_iterator where, ptrdiff_t span = 14) const noexcept -> std::optional<double>;
   auto getPartialPoint(MarketPoint::Time time) const -> std::optional<PartialMarketPoint>;
   auto getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange;
 

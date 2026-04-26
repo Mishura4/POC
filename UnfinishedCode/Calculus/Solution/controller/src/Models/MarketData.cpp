@@ -14,6 +14,14 @@ QJSValue toJSValue(MarketPoint::Value value) {
   return { static_cast<double>(value) / 100.0 };
 }
 
+template <typename T>
+QVariant toVariant(std::optional<T> value) {
+  if (value.has_value())
+    return *value;
+  else
+    return QJSValue::SpecialValue::UndefinedValue;
+}
+
 template <typename R = void>
 auto lerp(std::floating_point auto factor, auto low, decltype(low) high) {
   if constexpr (std::is_void_v<R>) {
@@ -63,11 +71,15 @@ auto MarketPoint::time() const -> QDateTime {
   return QDateTime::fromStdTimePoint(clock_cast<std::chrono::system_clock>(getTime()));
 }
 
-PartialMarketPoint::PartialMarketPoint(MarketPoint before, MarketPoint after, Time time) noexcept :
-  MarketPoint(time, lerp(
+double MarketPoint::GetPartialValue(MarketPoint before, MarketPoint after, MarketPoint::Time time) noexcept {
+  return lerp(
     invlerp<dseconds>(time, before.getTime(), after.getTime()),
-    before.getValue(), after.getValue())
-  ),
+    before.getValue(), after.getValue()
+  );
+}
+
+PartialMarketPoint::PartialMarketPoint(MarketPoint before, MarketPoint after, Time time) noexcept :
+  MarketPoint(time, static_cast<Value>(std::round(GetPartialValue(before, after, time)))),
   MoBefore(before), MoAfter(after) {
 
 }
@@ -78,7 +90,8 @@ MarketDataModel::MarketDataModel(QObject *parent) noexcept
 QHash<int, QByteArray> MarketDataModel::roleNames() const {
   return QHash<int, QByteArray>{
     {static_cast<int>(Role::Time), "Time"},
-    {static_cast<int>(Role::Value), "Value"}
+    {static_cast<int>(Role::Value), "Value"},
+    {static_cast<int>(Role::SMA), "SMA"}
   };
 }
 
@@ -95,6 +108,10 @@ QVariant MarketDataModel::data(const QModelIndex &index, int role) const
       return _points[index.row()].time();
     case 1:
       return _points[index.row()].value();
+    case 2:
+      return index.row() >= 3 ? _points[index.row()].time() : QVariant();
+    case 3:
+      return toVariant(getSimpleMovingAverage(_points.begin() + index.row(), 3).transform([](double n) { return n / 100; }));
     default:
       return {};
   }
@@ -178,6 +195,17 @@ auto MarketDataModel::getBefore(MarketPoint::Time time) const noexcept -> Points
   );
 }
 
+auto MarketDataModel::getSimpleMovingAverage(Points::const_iterator where, ptrdiff_t points) const noexcept -> std::optional<double> {
+  if (points <= 0 || std::distance(_points.begin(), where) < points) {
+    return std::nullopt;
+  } else {
+    auto range = std::ranges::subrange(where - points + 1, where + 1);
+    return std::ranges::fold_left(range | std::views::transform(&MarketPoint::getValue), double{}, [](double a, MarketPoint::Value b) -> double {
+      return a + static_cast<double>(b);
+    }) / std::abs(points);
+  }
+}
+
 auto MarketDataModel::getPartialPoint(MarketPoint::Time time) const -> std::optional<PartialMarketPoint> {
   auto before = getBefore(time);
   if (before == std::ranges::end(_points))
@@ -203,30 +231,30 @@ QJSValueList MarketDataModel::getBoundsY(QDateTime minTime, QDateTime maxTime) c
   if (itMin == _points.end())
     return {};
 
-  auto min = *itMin;
-  auto max = *itMax;
+  auto minValue = static_cast<double>(itMin->getValue());
+  auto maxValue = static_cast<double>(itMax->getValue());
   if (subrange.begin() != _points.begin()) {
     auto before = std::ranges::prev(subrange.begin());
-    if (before->getValue() < min.getValue()) {
-      auto partial = PartialMarketPoint(*before, *subrange.begin(), minUtcTime);
-      min = min.getValue() < partial.getValue() ? min : partial;
+    if (before->getValue() < minValue) {
+      auto partial = MarketPoint::GetPartialValue(*before, *subrange.begin(), minUtcTime);
+      minValue = minValue < partial ? minValue : partial;
     }
   }
 
   if (itMax == subrange.end()) // Special case when we are looking only at partial points
-    max = min;
+    maxValue = minValue;
 
   if (subrange.end() != _points.end()) {
     auto after = subrange.end();
     auto last = std::ranges::prev(after);
-    if (after->getValue() > max.getValue()) {
-      auto partial = PartialMarketPoint(*last, *after, maxUtcTime);
-      max = max.getValue() > partial.getValue() ? max : partial;
+    if (after->getValue() > maxValue) {
+      auto partial = MarketPoint::GetPartialValue(*last, *after, maxUtcTime);
+      maxValue = maxValue > partial ? maxValue : partial;
     }
   }
 
-  double dMin = static_cast<double>(min.getValue() / 100.0);
-  double dMax = static_cast<double>(max.getValue() / 100.0);
+  auto dMin = minValue / 100.0;
+  auto dMax = maxValue / 100.0;
   return QJSValueList{ dMin, dMax };
 }
 
