@@ -54,7 +54,7 @@ GraphsView {
     readonly property var xDataMax: (dataModelMapper.model.maxX ?? getClosingTime()).getTime()
     property var xVisualMin: xDataMin
     property var xVisualMax: xDataMax
-    property var yVisualMin: 0
+    property var yVisualMin: dataModelMapper.model.minY ?? 0
     property var yVisualMax: dataModelMapper.model.maxY ?? 100
 
     readonly property var xVisualSpan: xVisualMin - xVisualMax

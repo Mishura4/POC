@@ -3,84 +3,12 @@
 #include <iostream>
 #include <algorithm>
 
-namespace Calculus {
+namespace Calculus::inline Models {
 
 namespace {
 
 using dseconds = std::chrono::duration<double>;
 using dstime = std::chrono::time_point<MarketPoint::Time::clock, dseconds>;
-
-QJSValue toJSValue(MarketPoint::Value value) {
-  return { static_cast<double>(value) / 100.0 };
-}
-
-template <typename T>
-QVariant toVariant(std::optional<T> value) {
-  if (value.has_value())
-    return *value;
-  else
-    return QJSValue::SpecialValue::UndefinedValue;
-}
-
-template <typename R = void>
-auto lerp(std::floating_point auto factor, auto low, decltype(low) high) {
-  if constexpr (std::is_void_v<R>) {
-    return factor * (high - low) + low;
-  } else {
-    return static_cast<R>(factor * (high - low) + low);
-  }
-}
-
-template <typename R = double>
-auto invlerp(auto value, decltype(value) low, decltype(value) high) {
-  if constexpr (std::is_void_v<R>) {
-    return (value - low) / (high - low);
-  } else {
-    return static_cast<R>(value - low) / static_cast<R>(high - low);
-  }
-}
-
-}
-
-template <typename NewPoints>
-void MarketDataModel::_updateMinMax(const NewPoints &range) {
-  if (std::ranges::empty(range))
-    return;
-
-  auto prevMinX = _minXindex;
-  auto prevMaxX = _maxXindex;
-  auto prevMinY = _minYindex;
-  auto prevMaxY = _maxYindex;
-
-  auto [minX, maxX] = std::ranges::minmax_element(range, std::less<>{}, tuple_get<0>);
-  _minXindex = static_cast<int>(std::ranges::distance(_points.begin(), minX));
-  _maxXindex = static_cast<int>(std::ranges::distance(_points.begin(), maxX));
-
-  auto [minY, maxY] = std::ranges::minmax_element(range, std::less<>{}, tuple_get<1>);
-  _minYindex = static_cast<int>(std::ranges::distance(_points.begin(), minY));
-  _maxXindex = static_cast<int>(std::ranges::distance(_points.begin(), maxY));
-}
-
-MarketPoint::MarketPoint(QDateTime time, Value value) noexcept :
-  MoTime(clock_cast<std::chrono::utc_clock>(time.toStdSysMilliseconds())),
-  MnValue(value)
-{
-}
-
-auto MarketPoint::time() const -> QDateTime {
-  return QDateTime::fromStdTimePoint(clock_cast<std::chrono::system_clock>(getTime()));
-}
-
-double MarketPoint::GetPartialValue(MarketPoint before, MarketPoint after, MarketPoint::Time time) noexcept {
-  return lerp(
-    invlerp<dseconds>(time, before.getTime(), after.getTime()),
-    before.getValue(), after.getValue()
-  );
-}
-
-PartialMarketPoint::PartialMarketPoint(MarketPoint before, MarketPoint after, Time time) noexcept :
-  MarketPoint(time, static_cast<Value>(std::round(GetPartialValue(before, after, time)))),
-  MoBefore(before), MoAfter(after) {
 
 }
 
@@ -111,7 +39,7 @@ QVariant MarketDataModel::data(const QModelIndex &index, int role) const
     case 2:
       return index.row() >= 3 ? _points[index.row()].time() : QVariant();
     case 3:
-      return toVariant(getSimpleMovingAverage(_points.begin() + index.row(), 3).transform([](double n) { return n / 100; }));
+      return toQVariant(getSimpleMovingAverage(_points.begin() + index.row(), 3).transform([](double n) { return n / 100; }));
     default:
       return {};
   }
@@ -138,19 +66,27 @@ auto MarketDataModel::size() const noexcept -> int {
 }
 
 auto MarketDataModel::minX() const noexcept -> QVariant {
-  return _minXindex < 0 ? QVariant() : _points[_minXindex].time();
+  return toQVariant(_bounds.transform([](const Bounds& bounds) {
+    return toQDateTime(bounds.minX);
+  }));
 }
 
 auto MarketDataModel::maxX() const noexcept -> QVariant {
-  return _maxXindex < 0 ? QVariant() : _points[_maxXindex].time();
+  return toQVariant(_bounds.transform([](const Bounds& bounds) {
+    return toQDateTime(bounds.maxX);
+  }));
 }
 
 auto MarketDataModel::minY() const noexcept -> QVariant {
-  return _minYindex < 0 ? QVariant() : _points[_minYindex].value();
+  return toQVariant(_bounds.transform([](const Bounds& bounds) {
+    return static_cast<double>(bounds.minY) / 100.0;
+  }));
 }
 
 auto MarketDataModel::maxY() const noexcept -> QVariant {
-  return _maxYindex < 0 ? QVariant() : _points[_maxYindex].value();
+  return toQVariant(_bounds.transform([](const Bounds& bounds) {
+    return static_cast<double>(bounds.maxY) / 100.0;
+  }));
 }
 
 auto MarketDataModel::getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange {
@@ -174,7 +110,7 @@ QJSValue MarketDataModel::getMinY(QDateTime minTime, QDateTime maxTime) const {
     return QJSValue{};
   } else {
     auto min = std::ranges::min(subrange | std::views::transform(&MarketPoint::getValue));
-    return toJSValue(min);
+    return static_cast<double>(min / 100);
   }
 }
 
@@ -184,18 +120,18 @@ QJSValue MarketDataModel::getMaxY(QDateTime minTime, QDateTime maxTime) const {
     return QJSValue{};
   } else {
     auto max = std::ranges::max(subrange | std::views::transform(&MarketPoint::getValue));
-    return toJSValue(max);
+    return static_cast<double>(max / 100);
   }
 }
 
-auto MarketDataModel::getBefore(MarketPoint::Time time) const noexcept -> Points::const_iterator {
+auto MarketDataModel::getBefore(MarketPoint::Time time) const noexcept -> DataSet::const_iterator {
   return std::ranges::lower_bound(
     _points.begin(), _points.end(),
     time, std::less<>{}, &MarketPoint::getTime
   );
 }
 
-auto MarketDataModel::getSimpleMovingAverage(Points::const_iterator where, ptrdiff_t points) const noexcept -> std::optional<double> {
+auto MarketDataModel::getSimpleMovingAverage(DataSet::const_iterator where, ptrdiff_t points) const noexcept -> std::optional<double> {
   if (points <= 0 || std::distance(_points.begin(), where) < points) {
     return std::nullopt;
   } else {
@@ -261,18 +197,16 @@ QJSValueList MarketDataModel::getBoundsY(QDateTime minTime, QDateTime maxTime) c
 void MarketDataModel::_recalcMinMax() noexcept {
   using namespace std::chrono_literals;
   if (std::ranges::empty(_points)) {
-    _maxXindex = -1;
-    _minXindex = -1;
-    _minYindex = -1;
-    _maxYindex = -1;
+    _bounds = std::nullopt;
   } else {
     auto [minX, maxX] = std::ranges::minmax_element(_points, std::less<>{}, tuple_get<0>);
-    _minXindex = static_cast<int>(std::ranges::distance(_points.begin(), minX));
-    _maxXindex = static_cast<int>(std::ranges::distance(_points.begin(), maxX));
-
     auto [minY, maxY] = std::ranges::minmax_element(_points, std::less<>{}, tuple_get<1>);
-    _minYindex = static_cast<int>(std::ranges::distance(_points.begin(), minY));
-    _maxYindex = static_cast<int>(std::ranges::distance(_points.begin(), maxY));
+    _bounds = Bounds {
+      .minX = minX->getTime(),
+      .maxX = maxX->getTime(),
+      .minY = minY->getValue(),
+      .maxY = maxY->getValue()
+    };
   }
 }
 
@@ -285,18 +219,15 @@ void MarketDataModel::addPoint(MarketPoint point) {
   endInsertRows();
 }
 
-void MarketDataModel::setPoints(Points points) {
-  auto prevMinX = minX();
-  auto prevMaxX = maxX();
-  auto prevMinY = minY();
-  auto prevMaxY = maxY();
+void MarketDataModel::setData(DataSet points) {
+  auto prev = _bounds;
   std::ranges::sort(points, PointSorter{});
   beginResetModel();
   _points = std::move(points);
   endResetModel();
 
   _recalcMinMax();
-  if (prevMinX != minX() || prevMaxX != maxX() || prevMinY != minY() || prevMaxY != maxY()) {
+  if (prev != _bounds) {
     emit boundsChanged();
   }
 }

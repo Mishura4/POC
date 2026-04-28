@@ -44,7 +44,7 @@ void Backend::queryMarketData(QDateTime start, QDateTime end, QJSValue callback)
 
   runAsync([this, callback](std::vector<MarketPoint> values) {
     callback.call(QJSValueList{ toJSVariant(values) });
-    MoModel->setPoints(std::move(values));
+    MoModel->setData(std::move(values));
   }, &Backend::doQueryMarketData, this, start, end);
 }
 
