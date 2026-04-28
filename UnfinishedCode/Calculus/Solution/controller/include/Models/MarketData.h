@@ -39,16 +39,36 @@ public:
 
   class Operator {
   public:
-    Operator() noexcept = default;
+    using X = MarketDataModel::X;
+    using Y = MarketDataModel::Y;
+
     Operator(const Operator&) noexcept = default;
     Operator(Operator&&) noexcept = default;
+
     Operator& operator=(const Operator&) noexcept = default;
     Operator& operator=(Operator&&) noexcept = default;
     virtual ~Operator() = default;
 
-    virtual auto getX(const MarketDataModel& dataSet, X x) const noexcept -> std::optional<X> = 0;
-    virtual auto getY(const MarketDataModel& dataSet, Y y, int row = 0) noexcept -> std::optional<Y> = 0;
-    virtual auto rowCount() const noexcept -> int = 0;
+    virtual void reset(const MarketDataModel& dataSet) = 0;
+    virtual auto getX() const noexcept -> std::span<const MarketPoint::Time> = 0;
+    virtual auto getY(int row = 0) const noexcept -> std::span<const double> = 0;
+    constexpr auto rowCount() const noexcept -> int { return MnRowCount; }
+    constexpr auto startOffset() const noexcept -> int { return MnStartOffset; }
+    constexpr auto size() const noexcept -> int { return MnSize; }
+
+  protected:
+    constexpr Operator(int rowCount, int startOffset = 0, int size = 0) noexcept :
+      MnRowCount(rowCount),
+      MnStartOffset(startOffset),
+      MnSize(size)
+    {}
+
+    constexpr void setSize(int newSize) noexcept { MnSize = newSize; }
+
+  private:
+    int MnRowCount;
+    int MnStartOffset = 0;
+    int MnSize = 0;
   };
 
   enum class Role {
@@ -57,7 +77,8 @@ public:
     SMA
   };
 
-  explicit MarketDataModel(QObject* parent = nullptr) noexcept;
+  MarketDataModel() noexcept;
+  explicit MarketDataModel(QObject* parent) noexcept;
 
   void addPoint(MarketPoint point);
   template <typename Range>
@@ -71,7 +92,7 @@ public:
   int rowCount(const QModelIndex &parent) const override {
     return static_cast<int>(_points.size());
   }
-  int columnCount(const QModelIndex &parent) const override { return 4; }
+  int columnCount(const QModelIndex &parent) const override;
   QVariant data(const QModelIndex &index, int role) const override;
 
   auto begin() noexcept -> iterator;
@@ -102,7 +123,6 @@ private:
   using Subrange = std::ranges::subrange<DataSet::const_iterator>;
 
   auto getBefore(MarketPoint::Time time) const noexcept -> DataSet::const_iterator;
-  auto getSimpleMovingAverage(DataSet::const_iterator where, ptrdiff_t span = 14) const noexcept -> std::optional<double>;
   auto getPartialPoint(MarketPoint::Time time) const -> std::optional<PartialMarketPoint>;
   auto getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange;
 

@@ -1,7 +1,8 @@
 #include "Models/MarketData.h"
+#include "Models/Operators/SMA.h"
 
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 
 namespace Calculus::inline Models {
 
@@ -10,10 +11,18 @@ namespace {
 using dseconds = std::chrono::duration<double>;
 using dstime = std::chrono::time_point<MarketPoint::Time::clock, dseconds>;
 
+} // namespace
+
+MarketDataModel::MarketDataModel() noexcept : MarketDataModel(nullptr) {
+
 }
 
-MarketDataModel::MarketDataModel(QObject *parent) noexcept
-  : QAbstractTableModel(parent) {}
+MarketDataModel::MarketDataModel(QObject *parent) noexcept :
+  QAbstractTableModel(parent),
+  _operators(std::from_range, std::to_array<std::unique_ptr<Operator>>({
+    std::make_unique<Operators::SMA>(3),
+  }) | std::views::as_rvalue) {
+}
 
 QHash<int, QByteArray> MarketDataModel::roleNames() const {
   return QHash<int, QByteArray>{
@@ -21,6 +30,12 @@ QHash<int, QByteArray> MarketDataModel::roleNames() const {
     {static_cast<int>(Role::Value), "Value"},
     {static_cast<int>(Role::SMA), "SMA"}
   };
+}
+
+int MarketDataModel::columnCount(const QModelIndex &parent) const {
+  return std::ranges::fold_left(_operators, int{2}, [](int a, std::unique_ptr<Operator> const& op) {
+    return a + 1 + op->rowCount();
+  });
 }
 
 QVariant MarketDataModel::data(const QModelIndex &index, int role) const
@@ -36,13 +51,29 @@ QVariant MarketDataModel::data(const QModelIndex &index, int role) const
       return _points[index.row()].time();
     case 1:
       return _points[index.row()].value();
-    case 2:
-      return index.row() >= 3 ? _points[index.row()].time() : QVariant();
-    case 3:
-      return toQVariant(getSimpleMovingAverage(_points.begin() + index.row(), 3).transform([](double n) { return n / 100; }));
-    default:
-      return {};
+    }
+
+  auto col = index.column() - 2;
+  for (auto&& [ i, op] : std::views::enumerate(_operators)) {
+    auto opRows = 1 + op->rowCount();
+    if (col < opRows) {
+      auto x = index.row() - op->startOffset();
+      if (x >= op->size()) {
+        qDebug() << "Bad X for operator " << i << ": x=" << x << " >= size=" << op->size();
+        return {};
+      }
+      if (x < 0) {
+        return {};
+      }
+      if (col == 0)
+        return toQDateTime(op->getX()[x]);
+      else
+        return op->getY(col - 1)[x];
+    }
+    col -= opRows;
   }
+  qDebug() << "Bad column " << index.column() << " -- max is " << columnCount({});
+  return {};
 }
 
 auto MarketDataModel::begin() noexcept -> iterator {
@@ -131,17 +162,6 @@ auto MarketDataModel::getBefore(MarketPoint::Time time) const noexcept -> DataSe
   );
 }
 
-auto MarketDataModel::getSimpleMovingAverage(DataSet::const_iterator where, ptrdiff_t points) const noexcept -> std::optional<double> {
-  if (points <= 0 || std::distance(_points.begin(), where) < points) {
-    return std::nullopt;
-  } else {
-    auto range = std::ranges::subrange(where - points + 1, where + 1);
-    return std::ranges::fold_left(range | std::views::transform(&MarketPoint::getValue), double{}, [](double a, MarketPoint::Value b) -> double {
-      return a + static_cast<double>(b);
-    }) / std::abs(points);
-  }
-}
-
 auto MarketDataModel::getPartialPoint(MarketPoint::Time time) const -> std::optional<PartialMarketPoint> {
   auto before = getBefore(time);
   if (before == std::ranges::end(_points))
@@ -224,6 +244,9 @@ void MarketDataModel::setData(DataSet points) {
   std::ranges::sort(points, PointSorter{});
   beginResetModel();
   _points = std::move(points);
+  for (auto& op : _operators) {
+    op->reset(*this);
+  }
   endResetModel();
 
   _recalcMinMax();
