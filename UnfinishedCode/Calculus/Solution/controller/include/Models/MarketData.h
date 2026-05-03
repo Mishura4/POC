@@ -8,10 +8,11 @@
 #include <QDateTime>
 #include <QtQuick/QtQuick>
 
-#include "Tools.h"
+#include "Operators/Operator.h"
 #include "MarketPoint.h"
+#include "Tools.h"
 
-namespace Calculus::inline Models {
+namespace Calculus::inline Models::MarketData {
 
 class MarketDataModel : public QAbstractTableModel {
   Q_OBJECT
@@ -37,48 +38,15 @@ public:
   using QmlX = value_type::QmlTime;
   using QmlY = value_type::QmlValue;
 
-  class Operator {
-  public:
-    using X = MarketDataModel::X;
-    using Y = MarketDataModel::Y;
-
-    Operator(const Operator&) noexcept = default;
-    Operator(Operator&&) noexcept = default;
-
-    Operator& operator=(const Operator&) noexcept = default;
-    Operator& operator=(Operator&&) noexcept = default;
-    virtual ~Operator() = default;
-
-    virtual void reset(const MarketDataModel& dataSet) = 0;
-    virtual auto getX() const noexcept -> std::span<const MarketPoint::Time> = 0;
-    virtual auto getY(int row = 0) const noexcept -> std::span<const double> = 0;
-    constexpr auto rowCount() const noexcept -> int { return MnRowCount; }
-    constexpr auto startOffset() const noexcept -> int { return MnStartOffset; }
-    constexpr auto size() const noexcept -> int { return MnSize; }
-
-  protected:
-    constexpr Operator(int rowCount, int startOffset = 0, int size = 0) noexcept :
-      MnRowCount(rowCount),
-      MnStartOffset(startOffset),
-      MnSize(size)
-    {}
-
-    constexpr void setSize(int newSize) noexcept { MnSize = newSize; }
-
-  private:
-    int MnRowCount;
-    int MnStartOffset = 0;
-    int MnSize = 0;
-  };
-
   enum class Role {
     Time,
     Value,
     SMA
   };
 
-  MarketDataModel() noexcept;
-  explicit MarketDataModel(QObject* parent) noexcept;
+  MarketDataModel();
+  explicit MarketDataModel(QObject* parent);
+  ~MarketDataModel();
 
   void addPoint(MarketPoint point);
   template <typename Range>
@@ -122,8 +90,8 @@ signals:
 private:
   using Subrange = std::ranges::subrange<DataSet::const_iterator>;
 
-  auto getBefore(MarketPoint::Time time) const noexcept -> DataSet::const_iterator;
-  auto getPartialPoint(MarketPoint::Time time) const -> std::optional<PartialMarketPoint>;
+  auto getBefore(Time time) const noexcept -> DataSet::const_iterator;
+  auto getPartialPoint(Time time) const -> std::optional<PartialMarketPoint>;
   auto getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange;
 
   void _recalcMinMax() noexcept;

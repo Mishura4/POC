@@ -1,28 +1,31 @@
 #include "Models/MarketData.h"
+#include "Models/Operators/Identity.h"
 #include "Models/Operators/SMA.h"
 
 #include <algorithm>
 #include <iostream>
 
-namespace Calculus::inline Models {
+namespace Calculus::inline Models::MarketData {
 
 namespace {
 
 using dseconds = std::chrono::duration<double>;
-using dstime = std::chrono::time_point<MarketPoint::Time::clock, dseconds>;
+using dstime = std::chrono::time_point<Time::clock, dseconds>;
 
 } // namespace
 
-MarketDataModel::MarketDataModel() noexcept : MarketDataModel(nullptr) {
-
+MarketDataModel::MarketDataModel() : MarketDataModel(nullptr) {
 }
 
-MarketDataModel::MarketDataModel(QObject *parent) noexcept :
+MarketDataModel::MarketDataModel(QObject *parent) :
   QAbstractTableModel(parent),
   _operators(std::from_range, std::to_array<std::unique_ptr<Operator>>({
+    std::make_unique<Operators::Identity>(),
     std::make_unique<Operators::SMA>(3),
   }) | std::views::as_rvalue) {
 }
+
+MarketDataModel::~MarketDataModel() = default;
 
 QHash<int, QByteArray> MarketDataModel::roleNames() const {
   return QHash<int, QByteArray>{
@@ -46,20 +49,13 @@ QVariant MarketDataModel::data(const QModelIndex &index, int role) const
   if (index.row() < 0 || index.row() >= _points.size())
     return {};
 
-  switch (index.column()) {
-    case 0:
-      return _points[index.row()].time();
-    case 1:
-      return _points[index.row()].value();
-    }
-
-  auto col = index.column() - 2;
+  auto col = index.column();
   for (auto&& [ i, op] : std::views::enumerate(_operators)) {
     auto opRows = 1 + op->rowCount();
     if (col < opRows) {
       auto x = index.row() - op->startOffset();
       if (x >= op->size()) {
-        qDebug() << "Bad X for operator " << i << ": x=" << x << " >= size=" << op->size();
+        qDebug().nospace() << "Bad X for operator " << i << ": x=" << x << " >= size=" << op->size();
         return {};
       }
       if (x < 0) {
@@ -121,7 +117,7 @@ auto MarketDataModel::maxY() const noexcept -> QVariant {
 }
 
 auto MarketDataModel::getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange {
-  using clock = MarketPoint::Time::clock;
+  using clock = Time::clock;
   auto minUtcTime = clock_cast<clock>(minTime.toStdSysMilliseconds());
   auto maxUtcTime = clock_cast<clock>(maxTime.toStdSysMilliseconds());
   auto begin = std::ranges::lower_bound(
@@ -155,14 +151,14 @@ QJSValue MarketDataModel::getMaxY(QDateTime minTime, QDateTime maxTime) const {
   }
 }
 
-auto MarketDataModel::getBefore(MarketPoint::Time time) const noexcept -> DataSet::const_iterator {
+auto MarketDataModel::getBefore(Time time) const noexcept -> DataSet::const_iterator {
   return std::ranges::lower_bound(
     _points.begin(), _points.end(),
     time, std::less<>{}, &MarketPoint::getTime
   );
 }
 
-auto MarketDataModel::getPartialPoint(MarketPoint::Time time) const -> std::optional<PartialMarketPoint> {
+auto MarketDataModel::getPartialPoint(Time time) const -> std::optional<PartialMarketPoint> {
   auto before = getBefore(time);
   if (before == std::ranges::end(_points))
     return std::nullopt;
@@ -178,7 +174,7 @@ auto MarketDataModel::getPartialPoint(MarketPoint::Time time) const -> std::opti
 }
 
 QJSValueList MarketDataModel::getBoundsY(QDateTime minTime, QDateTime maxTime) const {
-  using clock = MarketPoint::Time::clock;
+  using clock = Time::clock;
   auto minUtcTime = clock_cast<clock>(minTime.toStdSysMilliseconds());
   auto maxUtcTime = clock_cast<clock>(maxTime.toStdSysMilliseconds());
   auto subrange = getSubRange(minTime, maxTime);

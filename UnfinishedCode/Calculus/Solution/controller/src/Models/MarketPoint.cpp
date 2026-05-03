@@ -2,9 +2,9 @@
 // Created by miuna on 4/26/2026.
 //
 
-#include "MarketPoint.h"
+#include "Models/MarketPoint.h"
 
-namespace Calculus::inline Models {
+namespace Calculus::inline Models::MarketData {
 
 MarketPoint::MarketPoint(QDateTime time, Value value) noexcept :
   MoTime(clock_cast<std::chrono::utc_clock>(time.toStdSysMilliseconds())),
@@ -16,7 +16,7 @@ auto MarketPoint::time() const -> QDateTime {
   return toQDateTime(getTime());
 }
 
-double MarketPoint::GetPartialValue(MarketPoint before, MarketPoint after, MarketPoint::Time time) noexcept {
+double MarketPoint::GetPartialValue(MarketPoint before, MarketPoint after, Time time) noexcept {
   using dduration = std::chrono::duration<double, Time::period>;
   return lerp(
     invlerp<dduration>(time, before.getTime(), after.getTime()),
@@ -28,7 +28,5 @@ PartialMarketPoint::PartialMarketPoint(MarketPoint before, MarketPoint after, Ti
   MarketPoint(time, static_cast<Value>(std::round(GetPartialValue(before, after, time)))),
   MoBefore(before), MoAfter(after) {
 }
-
-
 
 }

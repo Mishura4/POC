@@ -2,9 +2,13 @@
 // Created by miuna on 4/28/2026.
 //
 
-#include "Models/Operators/SMA.h"
+#include <ranges>
 
-namespace Calculus::inline Models::Operators {
+#include "Models/Operators/SMA.h"
+#include "Models/MarketPoint.h"
+#include "Models/MarketData.h"
+
+namespace Calculus::inline Models::MarketData::Operators {
 
 void SMA::reset(const MarketDataModel &dataSet) {
   MoTimestamps.clear();

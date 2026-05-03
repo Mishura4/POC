@@ -4,14 +4,14 @@
 #include <QApplication>
 #include <nlohmann/json.hpp>
 
+#include "../include/Models/MarketData.h"
 #include "Core.h"
-#include "Models/MarketData.h"
 
 namespace Calculus {
 
 Backend::Backend(QObject* parent) :
   QObject(parent),
-  MoModel(new MarketDataModel(this)) {
+  MoModel(new MarketData::MarketDataModel(this)) {
   connect(QApplication::instance(), &QApplication::aboutToQuit, this, &Backend::quit);
 }
 
@@ -42,7 +42,7 @@ void Backend::queryMarketData(QDateTime start, QDateTime end, QJSValue callback)
     return;
   }
 
-  runAsync([this, callback](std::vector<MarketPoint> values) {
+  runAsync([this, callback](std::vector<MarketData::MarketPoint> values) {
     callback.call(QJSValueList{ toJSVariant(values) });
     MoModel->setData(std::move(values));
   }, &Backend::doQueryMarketData, this, start, end);
@@ -53,11 +53,11 @@ void Backend::quit() {
   MbQuit.store(true, std::memory_order_release);
 }
 
-auto Backend::doQueryMarketData(QDateTime start, QDateTime end) -> std::vector<MarketPoint> {
+auto Backend::doQueryMarketData(QDateTime start, QDateTime end) -> std::vector<MarketData::MarketPoint> {
   auto engine = QQmlEngine::contextForObject(this)->engine();
   using namespace std::chrono_literals;
   auto now = std::chrono::utc_clock::now();
-  return std::vector<MarketPoint> {
+  return std::vector<MarketData::MarketPoint> {
     { now - 10min, 100 },
     { now - 9min, 100 },
     { now - 8min, 200 },

@@ -2,34 +2,31 @@
 // Created by miuna on 4/28/2026.
 //
 
-#ifndef CALCULUS_SIMPLEMOVINGAVERAGE_H
-#define CALCULUS_SIMPLEMOVINGAVERAGE_H
+#ifndef CALCULUS_OPERATORS_IDENTITY_H
+#define CALCULUS_OPERATORS_IDENTITY_H
 
 #include <vector>
 #include <span>
 
-#include "MarketPoint.h"
-#include "Operator.h"
+#include "Operators/Operator.h"
+#include "MarketData.h"
 
 namespace Calculus::inline Models::MarketData::Operators {
 
-class SMA final : public Operator {
+class Identity final : public Operator {
 public:
-  constexpr SMA(int stride) noexcept :
-    Operator(1, (std::max)(0, stride - 1)),
-    MnStride(stride) {
-  }
+  constexpr Identity() noexcept : Operator(1) {}
 
   void reset(const MarketDataModel& dataSet) override;
   auto getX() const noexcept -> std::span<const Time> override { return MoTimestamps; }
   auto getY(int row) const noexcept -> std::span<const double> override { return MoValues; }
 
 private:
-  int MnStride = 1;
+  // TODO: We don't necessarily need to copy here maybe
   std::vector<Time> MoTimestamps;
   std::vector<double> MoValues;
 };
 
 }
 
-#endif //CALCULUS_SIMPLEMOVINGAVERAGE_H
+#endif // CALCULUS_OPERATORS_IDENTITY_H

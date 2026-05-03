@@ -14,7 +14,7 @@ namespace Calculus {
 class Backend : public QObject
 {
   Q_OBJECT
-  Q_PROPERTY(const MarketDataModel* model READ model CONSTANT)
+  Q_PROPERTY(const MarketData::MarketDataModel* model READ model CONSTANT)
 
 public:
   Backend(QObject* parent = nullptr);
@@ -24,7 +24,7 @@ public:
 
   Q_INVOKABLE void queryMarketData(QDateTime start, QDateTime end, QJSValue callback = {});
 
-  const MarketDataModel* model() const noexcept { return MoModel; }
+  const MarketData::MarketDataModel* model() const noexcept { return MoModel; }
 
 signals:
   void newData(qreal time, qreal value);
@@ -33,7 +33,7 @@ public slots:
   void quit();
 
 private:
-  auto doQueryMarketData(QDateTime start, QDateTime end) -> std::vector<MarketPoint>;
+  auto doQueryMarketData(QDateTime start, QDateTime end) -> std::vector<MarketData::MarketPoint>;
 
   template <typename T = QJSValue>
   auto toJSVariant(auto&& value, QQmlEngine* engine = nullptr);
@@ -46,7 +46,7 @@ private:
     requires (std::invocable<Fun, Args...>)
   auto runAsync(QJSValue callback, Fun&& fun, Args&&... args) -> QFuture<void>;
 
-  MarketDataModel* MoModel;
+  MarketData::MarketDataModel* MoModel;
   std::atomic<bool> MbQuit = false;
   std::mutex MoMutex;
   std::jthread MoThread;

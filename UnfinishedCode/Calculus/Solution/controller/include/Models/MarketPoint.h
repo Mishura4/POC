@@ -14,12 +14,13 @@
 
 #include "Tools.h"
 
-namespace Calculus::inline Models {
+namespace Calculus::inline Models::MarketData {
+
+using Time = std::chrono::utc_time<std::chrono::milliseconds>;
+using Value = uint64_t;
 
 class MarketPoint {
 public:
-  using Value = uint64_t;
-  using Time = std::chrono::utc_time<std::chrono::milliseconds>;
   using QmlValue = qreal;
   using QmlTime = QDateTime;
 
@@ -65,7 +66,7 @@ public:
     return point.getValue();
   }
 
-  static double GetPartialValue(MarketPoint before, MarketPoint after, MarketPoint::Time time) noexcept;
+  static double GetPartialValue(MarketPoint before, MarketPoint after, Time time) noexcept;
 
   friend QJSValue toJSValue(const MarketPoint& point);
 
@@ -76,7 +77,7 @@ private:
 
 class PartialMarketPoint : public MarketPoint {
 public:
-  PartialMarketPoint(MarketPoint before, MarketPoint after, MarketPoint::Time time) noexcept;
+  PartialMarketPoint(MarketPoint before, MarketPoint after, Time time) noexcept;
 
 private:
   MarketPoint MoBefore;
@@ -86,18 +87,18 @@ private:
 }
 
 template <>
-struct std::tuple_size<Calculus::MarketPoint> {
+struct std::tuple_size<Calculus::MarketData::MarketPoint> {
   static constexpr size_t value = 2;
 };
 
 template <>
-struct std::tuple_element<0, Calculus::MarketPoint> {
-  using type = Calculus::MarketPoint::Time;
+struct std::tuple_element<0, Calculus::MarketData::MarketPoint> {
+  using type = Calculus::MarketData::Time;
 };
 
 template <>
-struct std::tuple_element<1, Calculus::MarketPoint> {
-  using type = Calculus::MarketPoint::Value;
+struct std::tuple_element<1, Calculus::MarketData::MarketPoint> {
+  using type = Calculus::MarketData::Value;
 };
 
 #endif // RADICALWARE_CALCULUS_MARKETPOINT_H
