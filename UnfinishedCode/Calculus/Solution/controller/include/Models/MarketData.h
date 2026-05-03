@@ -73,6 +73,7 @@ public:
   QVariant maxX() const noexcept;
   QVariant minY() const noexcept;
   QVariant maxY() const noexcept;
+  Q_INVOKABLE QVariant pointClosestTo(QDateTime time) const noexcept;
 
   Q_INVOKABLE QJSValue getMinY(QDateTime minTime, QDateTime maxTime) const;
   Q_INVOKABLE QJSValue getMaxY(QDateTime minTime, QDateTime maxTime) const;

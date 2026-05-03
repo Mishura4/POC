@@ -116,6 +116,24 @@ auto MarketDataModel::maxY() const noexcept -> QVariant {
   }));
 }
 
+QVariant MarketDataModel::pointClosestTo(QDateTime time) const noexcept {
+  auto utcTime = clock_cast<Time::clock>(time.toStdSysMilliseconds());
+  auto high = std::ranges::lower_bound(_points, utcTime, std::less{}, &MarketPoint::getTime);
+  if (high == _points.end()) {
+    return _points.empty() ? QVariant{} : QVariant::fromValue(*std::prev(high));
+  }
+
+  auto low = high;
+  while (low->getTime() == high->getTime() && low != _points.begin()) {
+    low = std::prev(low);
+  }
+  if (high->getTime() - utcTime <= abs(utcTime - low->getTime())) {
+    return QVariant::fromValue(*high);
+  } else {
+    return QVariant::fromValue(*low);
+  }
+}
+
 auto MarketDataModel::getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange {
   using clock = Time::clock;
   auto minUtcTime = clock_cast<clock>(minTime.toStdSysMilliseconds());
