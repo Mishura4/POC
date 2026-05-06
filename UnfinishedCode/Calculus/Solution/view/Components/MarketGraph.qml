@@ -6,6 +6,7 @@ pragma ValueTypeBehavior: Addressable
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Shapes
+import QtQuick.Layouts
 import QtGraphs
 
 import com.github.Radicalware.Calculus
@@ -23,6 +24,8 @@ Item {
 
     readonly property var xVisualSpan: xVisualMax - xVisualMin
     readonly property var xVisualUnit: xVisualSpan / chart.plotArea.width
+    readonly property var yVisualSpan: yVisualMax - yVisualMin
+    readonly property var yVisualUnit: yVisualSpan / chart.plotArea.height
 
     XYModelMapper {
         id: dataModelMapper
@@ -71,7 +74,7 @@ Item {
             readonly property color c2: "#373F26"
             readonly property color c3: Qt.lighter(c2, 1.5)
             readonly property color c4: Qt.lighter(backgroundColor, 3.0)
-            readonly property color c5: Qt.hsla(c4.hslHue, c4.hslSaturation, c4.hslLightness, 0.5)
+            readonly property color c5: Qt.hsla(c4.hslHue, c4.hslSaturation, c4.hslLightness, 0.7)
 
             colorScheme: GraphsTheme.ColorScheme.Dark
             seriesColors: ["#2CDE85", "#DBEB00"]
@@ -154,51 +157,106 @@ Item {
             y: chart.plotArea.y
             width: chart.plotArea.width
             height: chart.plotArea.height
+            clip: true
 
             HoverHandler {
-                readonly property var partialPointHovered: !hoverHandler.hovered ? undefined : lineSeries.dataPointCoordinatesAt(hoverHandler.point.position.x, hoverHandler.point.position.y)
-                readonly property var dataPointHovered: partialPointHovered === undefined ? undefined : dataModelMapper.model.pointClosestTo(new Date(partialPointHovered.x))
-                readonly property var visualPointHovered: partialPointHovered !== undefined ? ((dataPointHovered.time.getTime() - marketGraph.xVisualMin) / (marketGraph.xVisualSpan)) * chart.plotArea.width : undefined
+                readonly property var hoverPoint: hoverHandler.point.position ?? Qt.vector2d(0, 0)
+                readonly property var hoverTime: marketGraph.xVisualMin + hoverPoint.x * marketGraph.xVisualUnit
+                readonly property var dataPoint: dataModelMapper.model.pointClosestTo(new Date(hoverTime))
+                readonly property var linePoint: dataPoint !== undefined ?
+                    Qt.vector2d(
+                        ((dataPoint.time.getTime() - marketGraph.xVisualMin) / (marketGraph.xVisualSpan)) * chart.plotArea.width,
+                        ((marketGraph.yVisualMax - dataPoint.value) / (marketGraph.yVisualSpan)) * chart.plotArea.height,
+                    ) :
+                    undefined
+                readonly property real dashThickness: 2
+                readonly property list<real> dashPattern: [dashThickness, dashThickness * 2]
 
                 id: hoverHandler
                 target: Item {
                     parent: innerRect
                     id: hoverIndicator
                     anchors.fill: parent
-                    visible: hoverHandler.visualPointHovered !== undefined
+                    visible: hoverHandler.hovered && hoverHandler.linePoint !== undefined
 
                     Shape {
                         ShapePath {
+                            id: hoverHorizontalLine
                             strokeColor: chart.theme.c5
-                            strokeWidth: 2
                             strokeStyle: ShapePath.DashLine
+                            strokeWidth: hoverHandler.dashThickness
+                            dashPattern: hoverHandler.dashPattern
                             startX: 0
                             startY: hoverHandler.point.position.y
-                            PathLine { x: innerRect.width; y: hoverHandler.point.position.y }
+                            PathLine {
+                                x: innerRect.width;
+                                y: hoverHandler.point.position.y
+                            }
                         }
                     }
 
                     Shape {
-                        visible: hoverHandler.visualPointHovered >= 0 && hoverHandler.visualPointHovered <= chart.plotArea.width
+                        visible: hoverHandler.linePoint?.x >= 0 && hoverHandler.linePoint?.x <= chart.plotArea.width
+                        horizontalAlignment: Shape.AlignHCenter
+                        verticalAlignment: Shape.AlignVCenter
 
                         ShapePath {
+                            id: hoverVerticalLine
                             strokeColor: chart.theme.c5
-                            strokeWidth: 2
                             strokeStyle: ShapePath.DashLine
-                            startX: hoverHandler.visualPointHovered ?? 0
+                            strokeWidth: hoverHandler.dashThickness
+                            dashPattern: hoverHandler.dashPattern
+                            startX: hoverToken.centerX
                             startY: 0
-                            PathLine { x: hoverHandler.visualPointHovered ?? 0; y: innerRect.height }
+                            PathLine { x: hoverToken.centerX; y: innerRect.height }
                         }
                     }
 
-                    Timer {
-                        interval: 1000
-                        running: true
-                        repeat: true
-                        onTriggered: {
-                            console.log(`${hoverHandler.dataPointHovered}: ${marketGraph.xVisualMin} + ${marketGraph.xVisualSpan} -- ${hoverHandler.visualPointHovered}`);
-                        }
+                    Rectangle {
+                        readonly property real centerX: (hoverHandler.linePoint?.x ?? 0);
+                        readonly property real centerY: (hoverHandler.linePoint?.y ?? 0);
+
+                        id: hoverToken
+                        parent: innerRect
+                        enabled: hoverHandler.hovered
+                        visible: hoverHandler.hovered
+                        radius: lineSeries.width * 4
+                        width: radius
+                        height: radius
+                        x: centerX - width / 2
+                        y: centerY - height / 2
+                        color: chart.theme.seriesColors[0]
                     }
+                }
+            }
+        }
+
+        Popup {
+            readonly property real offset: 4
+            readonly property bool isLeftOffset: (hoverVerticalLine.startX + width + offset * 2) > innerRect.width
+            readonly property bool isTopOffset: (hoverHorizontalLine.startY + height + offset * 2) > innerRect.height
+
+            id: hoverPopup
+            parent: innerRect
+            enabled: hoverHandler.hovered
+            visible: hoverHandler.hovered
+            x: Math.min(Math.max(0, hoverVerticalLine.startX), innerRect.width) + (isLeftOffset ? -(width + offset) : offset)
+            y: Math.min(Math.max(0, hoverHorizontalLine.startY), innerRect.height) + (isTopOffset ? -(height + offset) : offset)
+
+            background: Rectangle {
+                color: Qt.darker(chart.theme.c4, 2.0)
+                radius: hoverPopup.offset
+                anchors.fill: parent
+            }
+
+            padding: offset
+            ColumnLayout {
+                anchors.fill: parent
+                Label {
+                    text: qsTr("Value: %1").arg((hoverHandler.dataPoint?.value ?? 0).toFixed(2))
+                }
+                Label {
+                    text: hoverHandler.dataPoint?.time ?? "Unknown"
                 }
             }
         }
