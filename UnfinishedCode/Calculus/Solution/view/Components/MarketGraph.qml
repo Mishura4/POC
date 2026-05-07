@@ -46,7 +46,7 @@ Item {
     }
 
     function getOpeningTime(now) {
-        if (now == undefined)
+        if (now === undefined)
             now = new Date();
         // assume NYSE for now
         now.setUTCHours(2);
@@ -124,8 +124,8 @@ Item {
         // Handles Zoom
         WheelHandler {
             onWheel: (wheel) => {
-                var zoomFactor = 1.2;
-                var vertical = false;
+                let zoomFactor = 1.2;
+                let vertical = false;
                 if (wheel.modifiers & Qt.ControlModifier)
                     vertical = !vertical;
                 if (wheel.modifiers & Qt.ShiftModifier)
@@ -180,6 +180,9 @@ Item {
                     visible: hoverHandler.hovered && hoverHandler.linePoint !== undefined
 
                     Shape {
+                        horizontalAlignment: Shape.AlignHCenter
+                        verticalAlignment: Shape.AlignVCenter
+
                         ShapePath {
                             id: hoverHorizontalLine
                             strokeColor: chart.theme.c5
@@ -193,12 +196,6 @@ Item {
                                 y: hoverHandler.point.position.y
                             }
                         }
-                    }
-
-                    Shape {
-                        visible: hoverHandler.linePoint?.x >= 0 && hoverHandler.linePoint?.x <= chart.plotArea.width
-                        horizontalAlignment: Shape.AlignHCenter
-                        verticalAlignment: Shape.AlignVCenter
 
                         ShapePath {
                             id: hoverVerticalLine

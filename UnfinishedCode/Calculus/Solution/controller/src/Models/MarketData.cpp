@@ -197,7 +197,7 @@ QJSValueList MarketDataModel::getBoundsY(QDateTime minTime, QDateTime maxTime) c
   auto maxUtcTime = clock_cast<clock>(maxTime.toStdSysMilliseconds());
   auto subrange = getSubRange(minTime, maxTime);
 
-  auto [itMin, itMax] = std::ranges::minmax_element(subrange, std::less<>{}, &MarketPoint::getTime);
+  auto [itMin, itMax] = std::ranges::minmax_element(subrange, std::less<>{}, &MarketPoint::getValue);
   if (itMin == _points.end())
     return {};
 
@@ -205,22 +205,17 @@ QJSValueList MarketDataModel::getBoundsY(QDateTime minTime, QDateTime maxTime) c
   auto maxValue = static_cast<double>(itMax->getValue());
   if (subrange.begin() != _points.begin()) {
     auto before = std::ranges::prev(subrange.begin());
-    if (before->getValue() < minValue) {
-      auto partial = MarketPoint::GetPartialValue(*before, *subrange.begin(), minUtcTime);
-      minValue = minValue < partial ? minValue : partial;
-    }
+    auto partial = MarketPoint::GetPartialValue(*before, *subrange.begin(), minUtcTime);
+    maxValue = (std::max)(partial, maxValue);
+    minValue = (std::min)(partial, minValue);
   }
-
-  if (itMax == subrange.end()) // Special case when we are looking only at partial points
-    maxValue = minValue;
 
   if (subrange.end() != _points.end()) {
     auto after = subrange.end();
     auto last = std::ranges::prev(after);
-    if (after->getValue() > maxValue) {
-      auto partial = MarketPoint::GetPartialValue(*last, *after, maxUtcTime);
-      maxValue = maxValue > partial ? maxValue : partial;
-    }
+    auto partial = MarketPoint::GetPartialValue(*last, *after, maxUtcTime);
+    maxValue = (std::max)(partial, maxValue);
+    minValue = (std::min)(partial, minValue);
   }
 
   auto dMin = minValue / 100.0;

@@ -17,7 +17,7 @@
 namespace Calculus::inline Models::MarketData {
 
 using Time = std::chrono::utc_time<std::chrono::milliseconds>;
-using Value = uint64_t;
+using Value = int64_t;
 
 class MarketPoint {
 public:
@@ -99,6 +99,21 @@ struct std::tuple_element<0, Calculus::MarketData::MarketPoint> {
 template <>
 struct std::tuple_element<1, Calculus::MarketData::MarketPoint> {
   using type = Calculus::MarketData::Value;
+};
+
+template <typename C>
+struct std::formatter<Calculus::MarketData::MarketPoint, C> {
+  constexpr auto parse(auto& ctx) {
+    auto it = ctx.begin();
+    while (it != ctx.end() && *it != '}') {
+      ++it;
+    }
+    return it;
+  }
+
+  auto format(const Calculus::MarketData::MarketPoint p, auto& ctx) const {
+    return std::format_to(ctx.out(), "{{{}, {}}}", p.getTime(), p.value());
+  }
 };
 
 #endif // RADICALWARE_CALCULUS_MARKETPOINT_H

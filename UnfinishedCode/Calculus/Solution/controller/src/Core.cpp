@@ -58,16 +58,16 @@ auto Backend::doQueryMarketData(QDateTime start, QDateTime end) -> std::vector<M
   using namespace std::chrono_literals;
   auto now = std::chrono::utc_clock::now();
   return std::vector<MarketData::MarketPoint> {
-    { now - 10min, 100 },
-    { now - 9min, 100 },
-    { now - 8min, 200 },
-    { now - 7min, 300 },
-    { now - 6min, 500 },
-    { now - 5min, 800 },
-    { now - 4min, 1300 },
-    { now - 3min, 2100 },
-    { now - 2min, 3400 },
-    { now - 1min, 5500 },
+    { now - 10min, 500 },
+    { now - 9min, 400 },
+    { now - 8min, 800 },
+    { now - 7min, 200 },
+    { now - 6min, 100 },
+    { now - 5min, 200 },
+    { now - 4min, 100 },
+    { now - 3min, 800 },
+    { now - 2min, 500 },
+    { now - 1min, 400 },
   };
 }
 
