@@ -13,9 +13,9 @@
 
 namespace Calculus::inline Models::MarketData::Operators {
 
-class Identity final : public Operator {
+class Identity : public Operator {
 public:
-  constexpr Identity() noexcept : Operator(1) {}
+  Identity(QObject* parent = nullptr) : Operator(parent, 1) {}
 
   void reset(const MarketDataModel& dataSet) override;
   auto getX() const noexcept -> std::span<const Time> override { return MoTimestamps; }

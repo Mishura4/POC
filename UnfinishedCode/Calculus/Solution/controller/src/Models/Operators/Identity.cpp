@@ -15,9 +15,11 @@ void Identity::reset(const MarketDataModel &dataSet) {
     return static_cast<double>(point.getValue()) / 100.0;
   }));
 
+  beginResetModel();
   MoTimestamps = std::move(timestamps);
   MoValues = std::move(values);
   setSize(static_cast<int>(std::ranges::size(MoTimestamps)));
+  endResetModel();
 }
 
 }

@@ -8,15 +8,14 @@
 #include <vector>
 #include <span>
 
-#include "MarketPoint.h"
 #include "Operator.h"
 
 namespace Calculus::inline Models::MarketData::Operators {
 
 class SMA final : public Operator {
 public:
-  constexpr SMA(int stride) noexcept :
-    Operator(1, (std::max)(0, stride - 1)),
+  SMA(QObject* parent, int stride) :
+    Operator(parent, 1, (std::max)(0, stride - 1)),
     MnStride(stride) {
   }
 

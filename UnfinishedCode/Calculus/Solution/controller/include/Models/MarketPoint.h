@@ -40,6 +40,12 @@ public:
     MnValue(value)
   {}
 
+  template <typename Clock, typename Duration>
+  constexpr MarketPoint(std::chrono::time_point<Clock, Duration> time, std::floating_point auto value) noexcept :
+    MoTime(clock_cast<std::chrono::utc_clock>(time_point_cast<Time::duration>(time))),
+    MnValue(static_cast<Value>(std::floor(value * 100)))
+  {}
+
   auto time() const -> QmlTime;
 
   auto getTime() const noexcept -> Time {

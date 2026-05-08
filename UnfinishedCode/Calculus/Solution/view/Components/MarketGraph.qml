@@ -15,35 +15,19 @@ Item {
     id: marketGraph
     anchors.fill: parent
 
-    readonly property var xDataMin: (dataModelMapper.model.minX ?? getOpeningTime()).getTime()
-    readonly property var xDataMax: (dataModelMapper.model.maxX ?? getClosingTime()).getTime()
+    readonly property var xDataMin: (marketGraph.model.minX ?? getOpeningTime()).getTime()
+    readonly property var xDataMax: (marketGraph.model.maxX ?? getClosingTime()).getTime()
     property var xVisualMin: xDataMin
     property var xVisualMax: xDataMax
-    property var yVisualMin: dataModelMapper.model.minY ?? 0
-    property var yVisualMax: dataModelMapper.model.maxY ?? 100
+    property var yVisualMin: marketGraph.model.minY ?? 0
+    property var yVisualMax: marketGraph.model.maxY ?? 100
 
     readonly property var xVisualSpan: xVisualMax - xVisualMin
     readonly property var xVisualUnit: xVisualSpan / chart.plotArea.width
     readonly property var yVisualSpan: yVisualMax - yVisualMin
     readonly property var yVisualUnit: yVisualSpan / chart.plotArea.height
 
-    XYModelMapper {
-        id: dataModelMapper
-        model: backend.model ? backend.model : []
-        orientation: Qt.Vertical
-        series: lineSeries
-        xSection: 0
-        ySection: 1
-    }
-
-    XYModelMapper {
-        id: dataModelMapper2
-        model: backend.model ? backend.model : []
-        orientation: Qt.Vertical
-        series: lineSeries2
-        xSection: 2
-        ySection: 3
-    }
+    readonly property var model: backend.model ? backend.model : []
 
     function getOpeningTime(now) {
         if (now === undefined)
@@ -109,16 +93,14 @@ Item {
         LineSeries {
             id: lineSeries
             name: "Line"
-            draggable: true
-            selectable: true
-            hoverable: true
-        }
 
-        LineSeries {
-            id: lineSeries2
-            name: "Line 2"
-            draggable: true
-            selectable: true
+            XYModelMapper {
+                model: marketGraph.model
+                orientation: Qt.Vertical
+                series: lineSeries
+                xSection: 0
+                ySection: 1
+            }
         }
 
         // Handles Zoom
@@ -162,7 +144,7 @@ Item {
             HoverHandler {
                 readonly property var hoverPoint: hoverHandler.point.position ?? Qt.vector2d(0, 0)
                 readonly property var hoverTime: marketGraph.xVisualMin + hoverPoint.x * marketGraph.xVisualUnit
-                readonly property var dataPoint: dataModelMapper.model.pointClosestTo(new Date(hoverTime))
+                readonly property var dataPoint: marketGraph.model.pointClosestTo(new Date(hoverTime))
                 readonly property var linePoint: dataPoint !== undefined ?
                     Qt.vector2d(
                         ((dataPoint.time.getTime() - marketGraph.xVisualMin) / (marketGraph.xVisualSpan)) * chart.plotArea.width,
@@ -217,7 +199,7 @@ Item {
                         parent: innerRect
                         enabled: hoverHandler.hovered
                         visible: hoverHandler.hovered
-                        radius: lineSeries.width * 4
+                        radius: 8
                         width: radius
                         height: radius
                         x: centerX - width / 2
@@ -259,7 +241,7 @@ Item {
         }
 
         function cropY(minX = new Date(xVisualMin), maxX = new Date(xVisualMax)) {
-            let bounds = dataModelMapper.model.getBoundsY(minX, maxX);
+            let bounds = marketGraph.model.getBoundsY(minX, maxX);
             if (bounds === undefined || bounds === null)
                 return;
 

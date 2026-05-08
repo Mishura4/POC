@@ -8,13 +8,13 @@
 #include <QDateTime>
 #include <QtQuick/QtQuick>
 
-#include "Operators/Operator.h"
+#include "Operators/Identity.h"
 #include "MarketPoint.h"
 #include "Tools.h"
 
 namespace Calculus::inline Models::MarketData {
 
-class MarketDataModel : public QAbstractTableModel {
+class MarketDataModel : public Operators::Identity {
   Q_OBJECT
   Q_PROPERTY(QVariant minX READ minX NOTIFY boundsChanged)
   Q_PROPERTY(QVariant maxX READ maxX NOTIFY boundsChanged)
@@ -51,17 +51,11 @@ public:
   void addPoint(MarketPoint point);
   template <typename Range>
   void setData(Range &&range) {
-    auto points = DataSet(std::from_range, std::forward<Range>(range));
     setData(DataSet(std::from_range, std::forward<Range>(range)));
   }
   void setData(DataSet points);
 
   QHash<int, QByteArray> roleNames() const override;
-  int rowCount(const QModelIndex &parent) const override {
-    return static_cast<int>(_points.size());
-  }
-  int columnCount(const QModelIndex &parent) const override;
-  QVariant data(const QModelIndex &index, int role) const override;
 
   auto begin() noexcept -> iterator;
   auto begin() const noexcept -> const_iterator;
@@ -73,7 +67,7 @@ public:
   QVariant maxX() const noexcept;
   QVariant minY() const noexcept;
   QVariant maxY() const noexcept;
-  Q_INVOKABLE QVariant pointClosestTo(QDateTime time) const noexcept;
+  QList<Operator*> operators() const noexcept;
 
   Q_INVOKABLE QJSValue getMinY(QDateTime minTime, QDateTime maxTime) const;
   Q_INVOKABLE QJSValue getMaxY(QDateTime minTime, QDateTime maxTime) const;
@@ -106,7 +100,7 @@ private:
   };
 
   DataSet _points;
-  std::vector<std::unique_ptr<Operator>> _operators;
+  std::vector<Operator*> _operators;
   std::optional<Bounds> _bounds;
 };
 

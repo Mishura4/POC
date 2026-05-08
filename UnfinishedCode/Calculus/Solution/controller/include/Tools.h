@@ -25,10 +25,16 @@ template <typename Fun>
 onScopeExit(Fun fun) -> onScopeExit<Fun>;
 
 template <size_t N>
-inline constexpr auto tuple_get = []<typename T>(T&& tuple) -> decltype(auto) {
-  using std::get;
-  return get<N>(tuple);
+struct tuple_get_t {
+  template <typename T>
+  static constexpr decltype(auto) operator()(T&& tuple) noexcept {
+    using std::get;
+    return get<N>(std::forward<T>(tuple));
+  }
 };
+
+template <size_t N>
+inline constexpr auto tuple_get = tuple_get_t<N>{};
 
 template <typename T, template <typename> typename RetTransform = std::type_identity>
 class projection {
@@ -78,6 +84,45 @@ auto invlerp(auto value, decltype(value) low, decltype(value) high) {
   }
 }
 
+template <
+  typename R = double,
+  typename Rep1 = long long,
+  typename Ratio1 = std::milli,
+  typename Rep2 = long long,
+  typename Ratio2 = std::milli,
+  typename Rep3 = long long,
+  typename Ratio3 = std::milli
+>
+auto invlerp(
+  std::chrono::duration<Rep1, Ratio1> value,
+  std::chrono::duration<Rep2, Ratio2> low,
+  std::chrono::duration<Rep3, Ratio3> high
+) -> R {
+  if constexpr (std::is_void_v<R>) {
+    return (value - low) / (high - low);
+  } else {
+    auto a = duration_cast<std::chrono::duration<R, Ratio1>>(value);
+    auto b = duration_cast<std::chrono::duration<R, Ratio2>>(low);
+    auto c = duration_cast<std::chrono::duration<R, Ratio3>>(high);
+    return (a - b) / (c - b);
+  }
+}
+
+template <
+  typename R = double,
+  typename Clock = std::chrono::system_clock,
+  typename Dur1 = Clock::duration,
+  typename Dur2 = Clock::duration,
+  typename Dur3 = Clock::duration
+>
+auto invlerp(
+  std::chrono::time_point<Clock, Dur1> value,
+  std::chrono::time_point<Clock, Dur2> low,
+  std::chrono::time_point<Clock, Dur3> high
+) -> R {
+  return invlerp(value.time_since_epoch(), low.time_since_epoch(), high.time_since_epoch());
+}
+
 template <typename T>
 QVariant toQVariant(std::optional<T> value) {
   if (value.has_value())
@@ -89,6 +134,42 @@ QVariant toQVariant(std::optional<T> value) {
 template <typename Duration, typename Clock>
 QDateTime toQDateTime(std::chrono::time_point<Duration, Clock> time) {
   return QDateTime::fromStdTimePoint(clock_cast<std::chrono::system_clock>(time));
+}
+
+template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
+auto getRangeWindow(Range &&range, const std::optional<Bound>& min, const std::optional<Bound>& max, Compare comp = {}, Proj proj = {}) noexcept ->
+  std::ranges::borrowed_subrange_t<Range>
+{
+  auto begin = min.has_value() ? std::ranges::lower_bound(range, *min, comp, proj) : std::ranges::begin(range);
+  auto end = max.has_value() ? std::ranges::lower_bound(range, *max, comp, proj) : std::ranges::end(range);
+  return std::ranges::borrowed_subrange_t<Range>{ begin, end };
+}
+
+template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
+auto getRangeWindow(Range &&range, const Bound& min, const std::optional<Bound>& max, Compare comp = {}, Proj proj = {}) noexcept ->
+  std::ranges::borrowed_subrange_t<Range>
+{
+  auto begin = std::ranges::lower_bound(range, *min, comp, proj);
+  auto end = max.has_value() ? std::ranges::lower_bound(range, *max, comp, proj) : std::ranges::end(range);
+  return std::ranges::borrowed_subrange_t<Range>{ begin, end };
+}
+
+template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
+auto getRangeWindow(Range &&range, const std::optional<Bound>& min, const Bound& max, Compare comp = {}, Proj proj = {}) noexcept ->
+  std::ranges::borrowed_subrange_t<Range>
+{
+  auto begin = min.has_value() ? std::ranges::lower_bound(range, *min, comp, proj) : std::ranges::begin(range);
+  auto end = std::ranges::lower_bound(range, max, comp, proj);
+  return std::ranges::borrowed_subrange_t<Range>{ begin, end };
+}
+
+template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
+auto getRangeWindow(Range &&range, const Bound& min, const Bound& max, Compare comp = {}, Proj proj = {}) noexcept ->
+  std::ranges::borrowed_subrange_t<Range>
+{
+  auto begin = std::ranges::lower_bound(range, min, comp, proj);
+  auto end = std::ranges::lower_bound(range, max, comp, proj);
+  return std::ranges::borrowed_subrange_t<Range>{ begin, end };
 }
 
 }
