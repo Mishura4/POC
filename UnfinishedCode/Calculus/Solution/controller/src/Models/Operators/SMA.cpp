@@ -10,8 +10,15 @@
 
 namespace Calculus::inline Models::MarketData::Operators {
 
-void SMA::reset(const MarketDataModel &dataSet) {
+SMA::SMA(int stride, QObject *parent, const QString name) :
+    Operator(parent, name, 1, (std::max)(0, stride - 1)),
+    MnStride(stride)
+{
 
+}
+
+void SMA::reset(const MarketDataModel &dataSet)
+{
   auto n = (std::abs)(MnStride);
   bool forward = MnStride >= 0;
   auto slide = dataSet | std::views::slide(n);

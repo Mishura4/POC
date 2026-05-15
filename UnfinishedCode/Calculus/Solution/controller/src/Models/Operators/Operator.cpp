@@ -12,11 +12,12 @@ namespace Calculus::inline Models::MarketData {
 // auto Operator::getYBounds(int row) const noexcept ->
 // std::optional<std::ranges::minmax_result<double>> {  }
 
-Operator::Operator(QObject* parent, int columnCount, int startOffset, int size) :
+Operator::Operator(QObject* parent, const QString& name, int columnCount, int startOffset, int size) :
   QAbstractTableModel(parent),
   MnColumnCount(columnCount),
   MnStartOffset(startOffset),
   MnSize(size) {
+  setObjectName(name);
 }
 
 QVariant Operator::data(const QModelIndex &index, int role) const {
@@ -31,7 +32,7 @@ QVariant Operator::data(const QModelIndex &index, int role) const {
   }
 
   if (column == 0) {
-    return toQDateTime(getX()[row]);
+    return ToQDateTime(getX()[row]);
   }
 
   return getY(column - 1)[row];
@@ -45,17 +46,17 @@ auto Operator::getYBounds(int column, std::optional<Time> minX, std::optional<Ti
 
   // Zip time & value column, binary search the window
   auto zipped = std::views::zip(getX(), getY(column));
-  constexpr auto getTime = tuple_get<0>;
-  constexpr auto getValue = tuple_get<1>;
-  auto [begin, end] = getRangeWindow(zipped, minX, maxX, std::less{}, getTime);
+  constexpr auto getTime = TupleGet<0>;
+  constexpr auto getValue = TupleGet<1>;
+  auto [begin, end] = GetRangeWindow(zipped, minX, maxX, std::less{}, getTime);
   auto [itMin, itMax] = std::ranges::minmax_element(begin, end, std::less<>{}, getValue);
 
   auto minValue = itMin == end ? std::optional<Y>{} : getValue(*itMin);
   auto maxValue = itMax == end ? std::optional<Y>{} : getValue(*itMax);
   if (minX.has_value() && begin != zipped.begin()) {
     auto before = std::ranges::prev(begin);
-    auto factor = invlerp(*minX, getTime(*before), getTime(*begin));
-    auto partial = lerp(factor, getValue(*before), getValue(*begin));
+    auto factor = InvLerp(*minX, getTime(*before), getTime(*begin));
+    auto partial = Lerp(factor, getValue(*before), getValue(*begin));
     maxValue = maxValue.has_value() ? (std::max)(partial, *maxValue) : partial;
     minValue = minValue.has_value() ? (std::min)(partial, *minValue) : partial;
   }
@@ -63,8 +64,8 @@ auto Operator::getYBounds(int column, std::optional<Time> minX, std::optional<Ti
   if (maxX.has_value() && end != zipped.end()) {
     auto after = end;
     auto last = std::ranges::prev(after);
-    auto factor = invlerp(*maxX, getTime(*last), getTime(*after));
-    auto partial = lerp(factor, getValue(*last), getValue(*after));
+    auto factor = InvLerp(*maxX, getTime(*last), getTime(*after));
+    auto partial = Lerp(factor, getValue(*last), getValue(*after));
     maxValue = maxValue.has_value() ? (std::max)(partial, *maxValue) : partial;
     minValue = minValue.has_value() ? (std::min)(partial, *minValue) : partial;
   }

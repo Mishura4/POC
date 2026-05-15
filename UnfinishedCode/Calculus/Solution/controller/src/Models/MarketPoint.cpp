@@ -13,13 +13,13 @@ MarketPoint::MarketPoint(QDateTime time, Value value) noexcept :
 }
 
 auto MarketPoint::time() const -> QDateTime {
-  return toQDateTime(getTime());
+  return ToQDateTime(getTime());
 }
 
 double MarketPoint::GetPartialValue(MarketPoint before, MarketPoint after, Time time) noexcept {
   using dduration = std::chrono::duration<double, Time::period>;
-  return lerp(
-    invlerp(time, before.getTime(), after.getTime()),
+  return Lerp(
+    InvLerp(time, before.getTime(), after.getTime()),
     before.getValue(), after.getValue()
   );
 }

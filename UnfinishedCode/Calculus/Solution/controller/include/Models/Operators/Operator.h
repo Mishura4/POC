@@ -7,6 +7,8 @@
 
 #include <vector>
 #include <span>
+#include <tuple>
+#include <optional>
 
 #include "MarketPoint.h"
 
@@ -42,7 +44,7 @@ public:
   QVariant data(const QModelIndex &index, int role) const override;
 
 protected:
-  explicit Operator(QObject* parent, int columnCount, int startOffset = 0, int size = 0);
+  explicit Operator(QObject* parent, const QString& name, int columnCount, int startOffset = 0, int size = 0);
 
   constexpr void setSize(int newSize) noexcept { MnSize = newSize; }
 
@@ -52,9 +54,9 @@ private:
   int MnSize = 0;
 };
 
-template <typename Tuple, typename Getter = tuple_get_t<0>, typename X = std::invoke_result_t<Getter, Tuple>>
+template <typename Tuple, typename Getter = TupleGetter<0>, typename X = std::invoke_result_t<Getter, Tuple>>
 static Tuple InterpolateTuple(X x, Tuple low, Tuple high, Getter getter = {}) noexcept {
-  auto factor = invlerp(x, getter(low), getter(high));
+  auto factor = InvLerp(x, getter(low), getter(high));
   return Tuple{
     lerp(factor, tuple_get<0>(low), tuple_get<0>(high)),
     lerp(factor, tuple_get<0>(high), tuple_get<1>(high)),

@@ -22,7 +22,7 @@ MarketDataModel::MarketDataModel(QObject *parent) :
   Identity(parent),
   _operators({
     this,
-    new Operators::SMA(this, 3)
+    new Operators::SMA(3, this)
   }) {
 }
 
@@ -31,8 +31,7 @@ MarketDataModel::~MarketDataModel() = default;
 QHash<int, QByteArray> MarketDataModel::roleNames() const {
   return QHash<int, QByteArray>{
     { static_cast<int>(Role::Time), "Time" },
-    { static_cast<int>(Role::Value), "Value" },
-    { static_cast<int>(Role::SMA), "SMA" }
+    { static_cast<int>(Role::Value), "Value" }
   };
 }
 
@@ -57,25 +56,25 @@ auto MarketDataModel::size() const noexcept -> int {
 }
 
 auto MarketDataModel::minX() const noexcept -> QVariant {
-  return toQVariant(_bounds.transform([](const Bounds& bounds) {
-    return toQDateTime(bounds.minX);
+  return ToQVariant(_bounds.transform([](const Bounds& bounds) {
+    return ToQDateTime(bounds.minX);
   }));
 }
 
 auto MarketDataModel::maxX() const noexcept -> QVariant {
-  return toQVariant(_bounds.transform([](const Bounds& bounds) {
-    return toQDateTime(bounds.maxX);
+  return ToQVariant(_bounds.transform([](const Bounds& bounds) {
+    return ToQDateTime(bounds.maxX);
   }));
 }
 
 auto MarketDataModel::minY() const noexcept -> QVariant {
-  return toQVariant(_bounds.transform([](const Bounds& bounds) {
+  return ToQVariant(_bounds.transform([](const Bounds& bounds) {
     return static_cast<double>(bounds.minY) / 100.0;
   }));
 }
 
 auto MarketDataModel::maxY() const noexcept -> QVariant {
-  return toQVariant(_bounds.transform([](const Bounds& bounds) {
+  return ToQVariant(_bounds.transform([](const Bounds& bounds) {
     return static_cast<double>(bounds.maxY) / 100.0;
   }));
 }
@@ -175,8 +174,8 @@ void MarketDataModel::_recalcMinMax() noexcept {
   if (std::ranges::empty(_points)) {
     _bounds = std::nullopt;
   } else {
-    auto [minX, maxX] = std::ranges::minmax_element(_points, std::less<>{}, tuple_get<0>);
-    auto [minY, maxY] = std::ranges::minmax_element(_points, std::less<>{}, tuple_get<1>);
+    auto [minX, maxX] = std::ranges::minmax_element(_points, std::less<>{}, TupleGet<0>);
+    auto [minY, maxY] = std::ranges::minmax_element(_points, std::less<>{}, TupleGet<1>);
     _bounds = Bounds {
       .minX = minX->getTime(),
       .maxX = maxX->getTime(),
@@ -200,7 +199,7 @@ void MarketDataModel::setData(DataSet points) {
   auto prev = _bounds;
   std::ranges::sort(points, PointSorter{});
   _points = std::move(points);
-  this->reset(*this);
+  reset(*this);
   for (auto& op : _operators) {
     op->reset(*this);
   }

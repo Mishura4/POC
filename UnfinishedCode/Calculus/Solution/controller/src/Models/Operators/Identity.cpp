@@ -9,7 +9,13 @@
 
 namespace Calculus::inline Models::MarketData::Operators {
 
-void Identity::reset(const MarketDataModel &dataSet) {
+Identity::Identity(QObject *parent, const QString& name) :
+  Operator(parent, name, 1)
+{
+}
+
+void Identity::reset(const MarketDataModel &dataSet)
+{
   auto timestamps = std::vector(std::from_range, dataSet | std::views::transform(&MarketPoint::getTime));
   auto values = std::vector(std::from_range, dataSet | std::views::transform([](const MarketPoint& point) {
     return static_cast<double>(point.getValue()) / 100.0;

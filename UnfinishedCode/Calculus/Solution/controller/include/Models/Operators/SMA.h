@@ -14,9 +14,10 @@ namespace Calculus::inline Models::MarketData::Operators {
 
 class SMA final : public Operator {
 public:
-  SMA(QObject* parent, int stride) :
-    Operator(parent, 1, (std::max)(0, stride - 1)),
-    MnStride(stride) {
+  SMA(int stride, QObject *parent, const QString name);
+  explicit SMA(int stride, QObject* parent = nullptr) :
+    SMA(stride, parent, tr("SMA %1").arg(stride))
+  {
   }
 
   void reset(const MarketDataModel& dataSet) override;
