@@ -39,4 +39,6 @@ include_directories(
 
 BuildRadicalQt6Solution(PrivateLibs PublicLibs)
 
+file(COPY_FILE "${CMAKE_CURRENT_SOURCE_DIR}/.clang-format_21" "${CMAKE_CURRENT_SOURCE_DIR}/.clang-format")
+
 # target_link_libraries(${THIS} PUBLIC QCoro6::Coro QCoro6::Core)

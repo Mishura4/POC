@@ -8,6 +8,7 @@ AlignConsecutiveDeclarations: false
 AlignOperands: false
 AlignTrailingComments: false
 AllowBreakBeforeNoexceptSpecifier: OnlyWithParen
+AllowShortLambdasOnASingleLine: Inline
 AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: false
 BinPackParameters: false
@@ -41,6 +42,7 @@ BreakConstructorInitializersBeforeComma: false
 BreakTemplateDeclarations: Yes
 ColumnLimit: 120
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
+Cpp11BracedListStyle: false
 IncludeCategories: 
   - Regex: '^<.*'
     Priority: 1
@@ -62,5 +64,9 @@ SpacesInAngles: false
 SpacesInConditionalStatement: false
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
+SpaceBeforeParensOptions:
+  AfterControlStatements: true
+  AfterRequiresInClause: true
+  AfterRequiresInExpression: false
 TabWidth: 4
 ...

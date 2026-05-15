@@ -64,10 +64,14 @@ namespace Calculus
     };
 
     inline constexpr auto Project = []<typename T>(T&& FfProjection)
-    { return Projection<std::remove_cvref_t<T>>{std::forward<T>(FfProjection)}; };
+    {
+        return Projection<std::remove_cvref_t<T>>{ std::forward<T>(FfProjection) };
+    };
 
     inline constexpr auto ProjectValue = []<typename T>(T&& FfProjection)
-    { return Projection<std::remove_cvref_t<T>, std::remove_cvref>{std::forward<T>(FfProjection)}; };
+    {
+        return Projection<std::remove_cvref_t<T>, std::remove_cvref>{ std::forward<T>(FfProjection) };
+    };
 
     template <typename R = void>
     auto Lerp(std::floating_point auto FnFactor, auto FxLow, decltype(FxLow) FnHigh)
@@ -164,7 +168,7 @@ namespace Calculus
             FxMin.has_value() ? std::ranges::lower_bound(FxRange, *FxMin, FfComp, FfProj) : std::ranges::begin(FxRange);
         auto LoEnd =
             FxMax.has_value() ? std::ranges::lower_bound(FxRange, *FxMax, FfComp, FfProj) : std::ranges::end(FxRange);
-        return std::ranges::borrowed_subrange_t<Range>{LoBegin, LoEnd};
+        return std::ranges::borrowed_subrange_t<Range>{ LoBegin, LoEnd };
     }
 
     template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
@@ -178,7 +182,7 @@ namespace Calculus
         auto LoBegin = std::ranges::lower_bound(FxRange, *FxMin, FfComp, FfProj);
         auto LoEnd =
             FxMax.has_value() ? std::ranges::lower_bound(FxRange, *FxMax, FfComp, FfProj) : std::ranges::end(FxRange);
-        return std::ranges::borrowed_subrange_t<Range>{LoBegin, LoEnd};
+        return std::ranges::borrowed_subrange_t<Range>{ LoBegin, LoEnd };
     }
 
     template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
@@ -192,7 +196,7 @@ namespace Calculus
         auto LoBegin =
             FxMin.has_value() ? std::ranges::lower_bound(FxRange, *FxMin, FfComp, FfProj) : std::ranges::begin(FxRange);
         auto LoEnd = std::ranges::lower_bound(FxRange, FxMax, FfComp, FfProj);
-        return std::ranges::borrowed_subrange_t<Range>{LoBegin, LoEnd};
+        return std::ranges::borrowed_subrange_t<Range>{ LoBegin, LoEnd };
     }
 
     template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
@@ -202,7 +206,7 @@ namespace Calculus
     {
         auto LoBegin = std::ranges::lower_bound(FxRange, FxMin, FfComp, FfProj);
         auto LoEnd = std::ranges::lower_bound(FxRange, FxMax, FfComp, FfProj);
-        return std::ranges::borrowed_subrange_t<Range>{LoBegin, LoEnd};
+        return std::ranges::borrowed_subrange_t<Range>{ LoBegin, LoEnd };
     }
 
 } // namespace Calculus
