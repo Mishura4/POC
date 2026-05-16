@@ -21,6 +21,7 @@ namespace Calculus::inline Models::MarketData
         Q_PROPERTY(QVariant maxX READ MaxX NOTIFY boundsChanged)
         Q_PROPERTY(QVariant minY READ MinY NOTIFY boundsChanged)
         Q_PROPERTY(QVariant maxY READ MaxY NOTIFY boundsChanged)
+        Q_PROPERTY(QList<Operator*> operators READ Operators CONSTANT)
 
         struct PointSorter
         {

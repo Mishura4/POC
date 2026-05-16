@@ -103,6 +103,20 @@ Item {
             }
         }
 
+        // TODO: Remove this and dynamically populate them using marketGraph.model.operators
+        LineSeries {
+            id: lineSeriesSMA
+            name: "SMA Line"
+
+            XYModelMapper {
+                model: marketGraph.model.operators[1]
+                orientation: Qt.Vertical
+                series: lineSeriesSMA
+                xSection: 0
+                ySection: 1
+            }
+        }
+
         // Handles Zoom
         WheelHandler {
             onWheel: (wheel) => {
@@ -288,6 +302,32 @@ Item {
             xVisualMin = newMin;
             xVisualMax = newMax;
             cropY();
+        }
+
+        Component.onCompleted: () => {
+            loadLines();
+        }
+
+        function loadLines() {
+            /* WIP
+                if (marketGraph.model?.operators === undefined)
+                    return;
+
+                let lists = [];
+                marketGraph.model.operators.forEach((op) => {
+                    let line = new LineSeries();
+                    let model = new XYModelMapper;
+                    model.model = op;
+                    model.orientation = Qt.Vertical;
+                    model.series = line;
+                    model.xSection = 0;
+                    model.ySection = 1;
+                    line.name = op.name;
+                    line.children = [model];
+                    lists.push(line);
+                });
+                marketGraph.seriesList = lists;
+            */
         }
     } // ChartView
 }
