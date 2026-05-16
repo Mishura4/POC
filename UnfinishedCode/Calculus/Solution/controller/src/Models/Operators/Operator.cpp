@@ -7,114 +7,145 @@
 #include "Models/Operators/Operator.h"
 #include "Tools.h"
 
-namespace Calculus::inline Models::MarketData {
-
-// auto Operator::getYBounds(int row) const noexcept ->
-// std::optional<std::ranges::minmax_result<double>> {  }
-
-Operator::Operator(QObject* parent, const QString& name, int columnCount, int startOffset, int size) :
-  QAbstractTableModel(parent),
-  MnColumnCount(columnCount),
-  MnStartOffset(startOffset),
-  MnSize(size) {
-  setObjectName(name);
-}
-
-QVariant Operator::data(const QModelIndex &index, int role) const {
-  auto row = index.row();
-  if (row < 0 || row >= rowCount(index.parent())) {
-    return QVariant();
-  }
-
-  auto column = index.column();
-  if (column < 0 || column >= columnCount(index.parent())) {
-    return QVariant();
-  }
-
-  if (column == 0) {
-    return ToQDateTime(getX()[row]);
-  }
-
-  return getY(column - 1)[row];
-}
-
-auto Operator::getYBounds(int column, std::optional<Time> minX, std::optional<Time> maxX) const noexcept -> YBounds
+namespace Calculus::inline Models::MarketData
 {
-  if (column < 0 || column >= columnCount({}) - 1) {
-    return std::nullopt;
-  }
+    // auto Operator::getYBounds(int row) const noexcept ->
+    // std::optional<std::ranges::minmax_result<double>> {  }
 
-  // Zip time & value column, binary search the window
-  auto zipped = std::views::zip(getX(), getY(column));
-  constexpr auto getTime = TupleGet<0>;
-  constexpr auto getValue = TupleGet<1>;
-  auto [begin, end] = GetRangeWindow(zipped, minX, maxX, std::less{}, getTime);
-  auto [itMin, itMax] = std::ranges::minmax_element(begin, end, std::less<>{}, getValue);
+    Operator::Operator(
+        QObject* FoParent, const QString& FsName, int FnColumnCount, int FnStartOffset, int FnSize
+    ) :
+        QAbstractTableModel(FoParent), MnColumnCount(FnColumnCount), MnStartOffset(FnStartOffset),
+        MnSize(FnSize)
+    {
+        setObjectName(FsName);
+    }
 
-  auto minValue = itMin == end ? std::optional<Y>{} : getValue(*itMin);
-  auto maxValue = itMax == end ? std::optional<Y>{} : getValue(*itMax);
-  if (minX.has_value() && begin != zipped.begin()) {
-    auto before = std::ranges::prev(begin);
-    auto factor = InvLerp(*minX, getTime(*before), getTime(*begin));
-    auto partial = Lerp(factor, getValue(*before), getValue(*begin));
-    maxValue = maxValue.has_value() ? (std::max)(partial, *maxValue) : partial;
-    minValue = minValue.has_value() ? (std::min)(partial, *minValue) : partial;
-  }
+    QVariant Operator::data(const QModelIndex& FoIndex, int FnRole) const
+    {
+        auto LnRowIndex = FoIndex.row();
+        if (LnRowIndex < 0 || LnRowIndex >= rowCount(FoIndex.parent()))
+        {
+            return QVariant();
+        }
 
-  if (maxX.has_value() && end != zipped.end()) {
-    auto after = end;
-    auto last = std::ranges::prev(after);
-    auto factor = InvLerp(*maxX, getTime(*last), getTime(*after));
-    auto partial = Lerp(factor, getValue(*last), getValue(*after));
-    maxValue = maxValue.has_value() ? (std::max)(partial, *maxValue) : partial;
-    minValue = minValue.has_value() ? (std::min)(partial, *minValue) : partial;
-  }
+        auto LnColumnIndex = FoIndex.column();
+        if (LnColumnIndex < 0 || LnColumnIndex >= columnCount(FoIndex.parent()))
+        {
+            return QVariant();
+        }
 
-  if (!minValue.has_value() || !maxValue.has_value()) {
-    assert(zipped.empty()); // right?
-    return std::nullopt;
-  }
-  return YBounds::value_type{ .min = *minValue, .max = *maxValue };
-}
+        if (LnColumnIndex == 0)
+        {
+            return ToQDateTime(GetX()[LnRowIndex]);
+        }
 
-auto Operator::getYBounds(int column, QDateTime minX, QDateTime maxX) const noexcept -> QJSValueList {
-  auto minUtcTime = clock_cast<Time::clock>(minX.toStdSysMilliseconds());
-  auto maxUtcTime = clock_cast<Time::clock>(maxX.toStdSysMilliseconds());
-  auto result = getYBounds(column, minUtcTime, maxUtcTime);
-  if (result.has_value()) {
-    return QJSValueList{ result->min, result->max };
-  }
-  return QJSValueList();
-}
+        return GetY(LnColumnIndex - 1)[LnRowIndex];
+    }
 
-QVariant Operator::pointClosestTo(QDateTime time) const noexcept {
-  auto utcTime = clock_cast<Time::clock>(time.toStdSysMilliseconds());
-  auto values = getX();
-  auto high = std::ranges::lower_bound(values, utcTime, std::less{});
-  if (high == values.end()) {
-    return values.empty() ? QVariant{} : QVariant::fromValue(*std::prev(high));
-  }
+    auto Operator::GetYBounds(
+        int FnColumn, std::optional<Time> FoMinX, std::optional<Time> FoMaxX
+    ) const noexcept -> YBounds
+    {
+        if (FnColumn < 0 || FnColumn >= columnCount({}) - 1)
+        {
+            return std::nullopt;
+        }
 
-  auto low = high;
-  while (*low == *high && low != values.begin()) {
-    low = std::prev(low);
-  }
-  auto closest = high;
-  if (*high - utcTime > abs(utcTime - *low)) {
-    closest = low;
-  }
-  return at(static_cast<int>(std::distance(values.begin(), closest)));
-}
+        // Zip time & value column, binary search the window
+        auto LvZipped = std::views::zip(GetX(), GetY(FnColumn));
+        constexpr auto LfGetTime = TupleGet<0>;
+        constexpr auto LfGetValue = TupleGet<1>;
+        auto [LoBegin, LoEnd] = GetRangeWindow(LvZipped, FoMinX, FoMaxX, std::less{}, LfGetTime);
+        auto [LoIteratorMin, LoIteratorMax]
+            = std::ranges::minmax_element(LoBegin, LoEnd, std::less<>{}, LfGetValue);
 
-QVariant Operator::operator[](int index) const {
-  return QVariant::fromValue(MarketPoint(getX()[index], getY(0)[index]));
-}
+        auto LnMinValue = LoIteratorMin == LoEnd ? std::optional<Y>{} : LfGetValue(*LoIteratorMin);
+        auto LnMaxValue = LoIteratorMax == LoEnd ? std::optional<Y>{} : LfGetValue(*LoIteratorMax);
+        if (FoMinX.has_value() && LoBegin != LvZipped.begin())
+        {
+            auto LoIteratorBefore = std::ranges::prev(LoBegin);
+            auto LnInterpolateFactor
+                = InvLerp(*FoMinX, LfGetTime(*LoIteratorBefore), LfGetTime(*LoBegin));
+            auto LnInterpolatedValue
+                = Lerp(LnInterpolateFactor, LfGetValue(*LoIteratorBefore), LfGetValue(*LoBegin));
+            LnMaxValue = LnMaxValue.has_value() ? (std::max)(LnInterpolatedValue, *LnMaxValue)
+                                                : LnInterpolatedValue;
+            LnMinValue = LnMinValue.has_value() ? (std::min)(LnInterpolatedValue, *LnMinValue)
+                                                : LnInterpolatedValue;
+        }
 
-QVariant Operator::at(int index) const {
-  if (index < 0 || index >= rowCount({})) {
-    throw std::out_of_range("Index out of range");
-  }
-  return (*this)[index];
-}
+        if (FoMaxX.has_value() && LoEnd != LvZipped.end())
+        {
+            auto LoIteratorAfter = LoEnd;
+            auto LoIteratorLast = std::ranges::prev(LoIteratorAfter);
+            auto LnInterpolateFactor
+                = InvLerp(*FoMaxX, LfGetTime(*LoIteratorLast), LfGetTime(*LoIteratorAfter));
+            auto LnInterpolatedValue = Lerp(
+                LnInterpolateFactor, LfGetValue(*LoIteratorLast), LfGetValue(*LoIteratorAfter)
+            );
+            LnMaxValue = LnMaxValue.has_value() ? (std::max)(LnInterpolatedValue, *LnMaxValue)
+                                                : LnInterpolatedValue;
+            LnMinValue = LnMinValue.has_value() ? (std::min)(LnInterpolatedValue, *LnMinValue)
+                                                : LnInterpolatedValue;
+        }
 
+        if (!LnMinValue.has_value() || !LnMaxValue.has_value())
+        {
+            assert(LvZipped.empty()); // right?
+            return std::nullopt;
+        }
+        return YBounds::value_type{ .min = *LnMinValue, .max = *LnMaxValue };
+    }
+
+    auto Operator::GetYBounds(int FnColumn, QDateTime FoMinX, QDateTime FoMaxX) const noexcept
+        -> QJSValueList
+    {
+        auto LoMinUtcTime = clock_cast<Time::clock>(FoMinX.toStdSysMilliseconds());
+        auto LoMaxUtcTime = clock_cast<Time::clock>(FoMaxX.toStdSysMilliseconds());
+        auto LoBounds = GetYBounds(FnColumn, LoMinUtcTime, LoMaxUtcTime);
+        if (LoBounds.has_value())
+        {
+            return QJSValueList{ LoBounds->min, LoBounds->max };
+        }
+        return QJSValueList();
+    }
+
+    QVariant Operator::PointClosestTo(QDateTime FoTime) const noexcept
+    {
+        auto LoUtcTime = clock_cast<Time::clock>(FoTime.toStdSysMilliseconds());
+        auto LvAllTimes = GetX();
+        auto LoIteratorHigh = std::ranges::lower_bound(LvAllTimes, LoUtcTime, std::less{});
+        if (LoIteratorHigh == LvAllTimes.end())
+        {
+            return LvAllTimes.empty() ? QVariant{}
+                                      : QVariant::fromValue(*std::prev(LoIteratorHigh));
+        }
+
+        auto LoIteratorLow = LoIteratorHigh;
+        while (*LoIteratorLow == *LoIteratorHigh && LoIteratorLow != LvAllTimes.begin())
+        {
+            LoIteratorLow = std::prev(LoIteratorLow);
+        }
+        auto LoIteratorClosest = LoIteratorHigh;
+        if (*LoIteratorHigh - LoUtcTime > abs(LoUtcTime - *LoIteratorLow))
+        {
+            LoIteratorClosest = LoIteratorLow;
+        }
+        return At(static_cast<int>(std::distance(LvAllTimes.begin(), LoIteratorClosest)));
+    }
+
+    QVariant Operator::operator[](int FnIndex) const
+    {
+        return QVariant::fromValue(MarketPoint(GetX()[FnIndex], GetY(0)[FnIndex]));
+    }
+
+    QVariant Operator::At(int FnIndex) const
+    {
+        if (FnIndex < 0 || FnIndex >= rowCount({}))
+        {
+            throw std::out_of_range("Index out of range");
+        }
+        return (*this)[FnIndex];
+    }
 } // namespace Calculus::inline Models::MarketData

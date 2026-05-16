@@ -144,7 +144,7 @@ Item {
             HoverHandler {
                 readonly property var hoverPoint: hoverHandler.point.position ?? Qt.vector2d(0, 0)
                 readonly property var hoverTime: marketGraph.xVisualMin + hoverPoint.x * marketGraph.xVisualUnit
-                readonly property var dataPoint: marketGraph.model.pointClosestTo(new Date(hoverTime))
+                readonly property var dataPoint: marketGraph.model.PointClosestTo(new Date(hoverTime))
                 readonly property var linePoint: dataPoint !== undefined ?
                     Qt.vector2d(
                         ((dataPoint.time.getTime() - marketGraph.xVisualMin) / (marketGraph.xVisualSpan)) * chart.plotArea.width,
@@ -241,7 +241,7 @@ Item {
         }
 
         function cropY(minX = new Date(xVisualMin), maxX = new Date(xVisualMax)) {
-            let bounds = marketGraph.model.getBoundsY(minX, maxX);
+            let bounds = marketGraph.model.GetBoundsY(minX, maxX);
             if (bounds === undefined || bounds === null)
                 return;
 

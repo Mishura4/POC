@@ -1,109 +1,113 @@
 #ifndef RADICALWARE_CALCULUS_MARKETDATA_H_
 #define RADICALWARE_CALCULUS_MARKETDATA_H_
 
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 #include <utility>
 
 #include <QDateTime>
 #include <QtQuick/QtQuick>
 
-#include "Operators/Identity.h"
 #include "MarketPoint.h"
+#include "Operators/Identity.h"
 #include "Tools.h"
 
-namespace Calculus::inline Models::MarketData {
+namespace Calculus::inline Models::MarketData
+{
+    class MarketDataModel : public Operators::Identity
+    {
+        Q_OBJECT
+        Q_PROPERTY(QVariant minX READ MinX NOTIFY boundsChanged)
+        Q_PROPERTY(QVariant maxX READ MaxX NOTIFY boundsChanged)
+        Q_PROPERTY(QVariant minY READ MinY NOTIFY boundsChanged)
+        Q_PROPERTY(QVariant maxY READ MaxY NOTIFY boundsChanged)
 
-class MarketDataModel : public Operators::Identity {
-  Q_OBJECT
-  Q_PROPERTY(QVariant minX READ minX NOTIFY boundsChanged)
-  Q_PROPERTY(QVariant maxX READ maxX NOTIFY boundsChanged)
-  Q_PROPERTY(QVariant minY READ minY NOTIFY boundsChanged)
-  Q_PROPERTY(QVariant maxY READ maxY NOTIFY boundsChanged)
+        struct PointSorter
+        {
+            static constexpr bool operator()(const MarketPoint& FoA, const MarketPoint& FoB) noexcept
+            {
+                return FoA.GetTime() < FoB.GetTime();
+            }
+        };
 
-  struct PointSorter {
-    static constexpr bool operator()(const MarketPoint& a, const MarketPoint& b) noexcept {
-      return a.getTime() < b.getTime();
-    }
-  };
+    public:
+        using DataSet = std::vector<MarketPoint>;
+        using value_type = typename DataSet::value_type;
+        using reference = typename DataSet::reference;
+        using iterator = typename DataSet::iterator;
+        using const_iterator = typename DataSet::const_iterator;
+        using X = std::tuple_element_t<0, value_type>;
+        using Y = std::tuple_element_t<1, value_type>;
+        using QmlX = value_type::QmlTime;
+        using QmlY = value_type::QmlValue;
 
-public:
-  using DataSet = std::vector<MarketPoint>;
-  using value_type = typename DataSet::value_type;
-  using reference = typename DataSet::reference;
-  using iterator = typename DataSet::iterator;
-  using const_iterator = typename DataSet::const_iterator;
-  using X = std::tuple_element_t<0, value_type>;
-  using Y = std::tuple_element_t<1, value_type>;
-  using QmlX = value_type::QmlTime;
-  using QmlY = value_type::QmlValue;
+        enum class Role
+        {
+            Time,
+            Value,
+            SMA
+        };
 
-  enum class Role {
-    Time,
-    Value,
-    SMA
-  };
+        MarketDataModel();
+        explicit MarketDataModel(QObject* FoParent);
+        ~MarketDataModel();
 
-  MarketDataModel();
-  explicit MarketDataModel(QObject* parent);
-  ~MarketDataModel();
+        void AddPoint(MarketPoint FoPoint);
+        template <typename Range>
+        void SetData(Range&& FvRange)
+        {
+            SetData(DataSet(std::from_range, std::forward<Range>(FvRange)));
+        }
+        void SetData(DataSet FvPoints);
 
-  void addPoint(MarketPoint point);
-  template <typename Range>
-  void setData(Range &&range) {
-    setData(DataSet(std::from_range, std::forward<Range>(range)));
-  }
-  void setData(DataSet points);
+        // https://en.cppreference.com/cpp/ranges/range
+        auto begin() noexcept -> iterator;
+        auto begin() const noexcept -> const_iterator;
+        auto end() noexcept -> iterator;
+        auto end() const noexcept -> const_iterator;
+        auto size() const noexcept -> int;
 
-  QHash<int, QByteArray> roleNames() const override;
+        QVariant MinX() const noexcept;
+        QVariant MaxX() const noexcept;
+        QVariant MinY() const noexcept;
+        QVariant MaxY() const noexcept;
+        QList<Operator*> Operators() const noexcept;
 
-  auto begin() noexcept -> iterator;
-  auto begin() const noexcept -> const_iterator;
-  auto end() noexcept -> iterator;
-  auto end() const noexcept -> const_iterator;
-  auto size() const noexcept -> int;
+        Q_INVOKABLE QJSValue GetMinY(QDateTime FoMinTime, QDateTime FoMaxTime) const;
+        Q_INVOKABLE QJSValue GetMaxY(QDateTime FoMinTime, QDateTime FoMaxTime) const;
+        // Q_INVOKABLE QVariant getPartialPoint(QDateTime time) const;
+        Q_INVOKABLE QJSValueList GetBoundsY(QDateTime FoMinTime, QDateTime FoMaxTime) const;
 
-  QVariant minX() const noexcept;
-  QVariant maxX() const noexcept;
-  QVariant minY() const noexcept;
-  QVariant maxY() const noexcept;
-  QList<Operator*> operators() const noexcept;
+        auto GetMinX() const noexcept -> std::optional<X>;
+        auto GetMaxX() const noexcept -> std::optional<X>;
+        auto GetMinY() const noexcept -> std::optional<Y>;
+        auto GetMaxY() const noexcept -> std::optional<Y>;
 
-  Q_INVOKABLE QJSValue getMinY(QDateTime minTime, QDateTime maxTime) const;
-  Q_INVOKABLE QJSValue getMaxY(QDateTime minTime, QDateTime maxTime) const;
-  // Q_INVOKABLE QVariant getPartialPoint(QDateTime time) const;
-  Q_INVOKABLE QJSValueList getBoundsY(QDateTime minTime, QDateTime maxTime) const;
+    signals:
+        void boundsChanged();
 
-  auto getMinX() const noexcept -> std::optional<X>;
-  auto getMaxX() const noexcept -> std::optional<X>;
-  auto getMinY() const noexcept -> std::optional<Y>;
-  auto getMaxY() const noexcept -> std::optional<Y>;
+    private:
+        using Subrange = std::ranges::subrange<DataSet::const_iterator>;
 
-signals:
-  void boundsChanged();
+        auto GetBefore(Time FoTime) const noexcept -> DataSet::const_iterator;
+        auto GetPartialPoint(Time FoTime) const -> std::optional<PartialMarketPoint>;
+        auto GetSubRange(QDateTime FoMinTime, QDateTime FoMaxTime) const noexcept -> Subrange;
 
-private:
-  using Subrange = std::ranges::subrange<DataSet::const_iterator>;
+        void RecalcMinMax() noexcept;
+        struct Bounds
+        {
+            X MoMinX{};
+            X MoMaxX{};
+            Y MnMinY{};
+            Y MnMaxY{};
 
-  auto getBefore(Time time) const noexcept -> DataSet::const_iterator;
-  auto getPartialPoint(Time time) const -> std::optional<PartialMarketPoint>;
-  auto getSubRange(QDateTime minTime, QDateTime maxTime) const noexcept -> Subrange;
+            constexpr friend auto operator==(Bounds FoLhs, Bounds FoRhs) noexcept -> bool = default;
+        };
 
-  void _recalcMinMax() noexcept;
-  struct Bounds {
-    X minX{};
-    X maxX{};
-    Y minY{};
-    Y maxY{};
-
-    constexpr friend auto operator==(Bounds lhs, Bounds rhs) noexcept -> bool = default;
-  };
-
-  DataSet _points;
-  std::vector<Operator*> _operators;
-  std::optional<Bounds> _bounds;
-};
-
-} // namespace Calculus
+        DataSet MvPoints;
+        std::vector<Operator*> MvOperators;
+        std::optional<Bounds> MoBounds;
+    };
+} // namespace Calculus::inline Models::MarketData
 
 #endif // RADICALWARE_CALCULUS_MARKETDATA_H_

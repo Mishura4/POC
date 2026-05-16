@@ -4,44 +4,51 @@
 
 #include <ranges>
 
-#include "Models/Operators/SMA.h"
-#include "Models/MarketPoint.h"
 #include "Models/MarketData.h"
+#include "Models/MarketPoint.h"
+#include "Models/Operators/SMA.h"
 
-namespace Calculus::inline Models::MarketData::Operators {
-
-SMA::SMA(int stride, QObject *parent, const QString name) :
-    Operator(parent, name, 1, (std::max)(0, stride - 1)),
-    MnStride(stride)
+namespace Calculus::inline Models::MarketData::Operators
 {
-
-}
-
-void SMA::reset(const MarketDataModel &dataSet)
-{
-  auto n = (std::abs)(MnStride);
-  bool forward = MnStride >= 0;
-  auto slide = dataSet | std::views::slide(n);
-  auto timestamps = slide
-  | std::views::transform([forward](const auto& window) {
-    if (forward) {
-      return window.back().getTime();
-    } else {
-      return window.front().getTime();
+    SMA::SMA(int FnStride, QObject* FoParent, const QString& FsName) :
+        Operator(FoParent, FsName, 1, (std::max)(0, FnStride - 1)), MnStride(FnStride)
+    {
     }
-  })
-  | std::ranges::to<std::vector<Time>>();
-  auto values = slide | std::views::transform([n](const auto& window) -> double {
-    return std::ranges::fold_left(window, double{}, [](double left, MarketPoint right) {
-      return left + static_cast<double>(right.getValue()) / 100.0;
-    }) / n;
-  })
-  | std::ranges::to<std::vector<double>>();
-  beginResetModel();
-  MoTimestamps = std::move(timestamps);
-  MoValues = std::move(values);
-  setSize(static_cast<int>(MoTimestamps.size()));
-  endResetModel();
-}
 
-} // Calculus
+    void SMA::Reset(const MarketDataModel& FvDataSet)
+    {
+        auto LnStride = (std::abs)(MnStride);
+        bool LbForwardStride = MnStride >= 0;
+        auto LvSlide = FvDataSet | std::views::slide(LnStride);
+        auto LvTimestamps = LvSlide |
+                            std::views::transform([LbForwardStride](const auto& LvWindow) {
+                                if (LbForwardStride)
+                                {
+                                    return LvWindow.back().GetTime();
+                                }
+                                else
+                                {
+                                    return LvWindow.front().GetTime();
+                                }
+                            }) |
+                            std::ranges::to<std::vector<Time>>();
+        auto LvValues =
+            LvSlide |
+            std::views::transform([LnStride](const auto& LvWindow) -> double {
+                return std::ranges::fold_left(
+                           LvWindow,
+                           double{},
+                           [](double LnLeft, MarketPoint LoRight) {
+                               return LnLeft + static_cast<double>(LoRight.GetValue()) / 100.0;
+                           }
+                       ) /
+                       LnStride;
+            }) |
+            std::ranges::to<std::vector<double>>();
+        beginResetModel();
+        MvTimestamps = std::move(LvTimestamps);
+        MvValues = std::move(LvValues);
+        SetSize(static_cast<int>(MvTimestamps.size()));
+        endResetModel();
+    }
+} // namespace Calculus::inline Models::MarketData::Operators

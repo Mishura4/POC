@@ -12,7 +12,6 @@
 
 namespace Calculus
 {
-
     template <typename Fun>
     struct OnScopeExit
     {
@@ -141,6 +140,16 @@ namespace Calculus
         return InvLerp(FoValue.time_since_epoch(), FoLow.time_since_epoch(), FoHigh.time_since_epoch());
     }
 
+    template <typename Tuple, typename Getter = TupleGetter<0>, typename X = std::invoke_result_t<Getter, Tuple>>
+    static Tuple InterpolateTuple(X FxValue, Tuple FxLow, Tuple FxHigh, Getter FfGetter = {}) noexcept
+    {
+        auto LnFactor = InvLerp(FxValue, FfGetter(FxLow), FfGetter(FxHigh));
+        return Tuple{
+            Lerp(LnFactor, TupleGet<0>(FxLow), TupleGet<0>(FxHigh)),
+            Lerp(LnFactor, TupleGet<1>(FxLow), TupleGet<1>(FxHigh)),
+        };
+    }
+
     template <typename T>
     QVariant ToQVariant(std::optional<T> FxValue)
     {
@@ -158,54 +167,54 @@ namespace Calculus
 
     template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
     auto GetRangeWindow(
-        Range&& FxRange,
+        Range&& FvRange,
         const std::optional<Bound>& FxMin,
         const std::optional<Bound>& FxMax,
         Compare FfComp = {},
         Proj FfProj = {}) noexcept -> std::ranges::borrowed_subrange_t<Range>
     {
         auto LoBegin =
-            FxMin.has_value() ? std::ranges::lower_bound(FxRange, *FxMin, FfComp, FfProj) : std::ranges::begin(FxRange);
+            FxMin.has_value() ? std::ranges::lower_bound(FvRange, *FxMin, FfComp, FfProj) : std::ranges::begin(FvRange);
         auto LoEnd =
-            FxMax.has_value() ? std::ranges::lower_bound(FxRange, *FxMax, FfComp, FfProj) : std::ranges::end(FxRange);
+            FxMax.has_value() ? std::ranges::lower_bound(FvRange, *FxMax, FfComp, FfProj) : std::ranges::end(FvRange);
         return std::ranges::borrowed_subrange_t<Range>{ LoBegin, LoEnd };
     }
 
     template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
     auto GetRangeWindow(
-        Range&& FxRange,
+        Range&& FvRange,
         const Bound& FxMin,
         const std::optional<Bound>& FxMax,
         Compare FfComp = {},
         Proj FfProj = {}) noexcept -> std::ranges::borrowed_subrange_t<Range>
     {
-        auto LoBegin = std::ranges::lower_bound(FxRange, *FxMin, FfComp, FfProj);
+        auto LoBegin = std::ranges::lower_bound(FvRange, *FxMin, FfComp, FfProj);
         auto LoEnd =
-            FxMax.has_value() ? std::ranges::lower_bound(FxRange, *FxMax, FfComp, FfProj) : std::ranges::end(FxRange);
+            FxMax.has_value() ? std::ranges::lower_bound(FvRange, *FxMax, FfComp, FfProj) : std::ranges::end(FvRange);
         return std::ranges::borrowed_subrange_t<Range>{ LoBegin, LoEnd };
     }
 
     template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
     auto GetRangeWindow(
-        Range&& FxRange,
+        Range&& FvRange,
         const std::optional<Bound>& FxMin,
         const Bound& FxMax,
         Compare FfComp = {},
         Proj FfProj = {}) noexcept -> std::ranges::borrowed_subrange_t<Range>
     {
         auto LoBegin =
-            FxMin.has_value() ? std::ranges::lower_bound(FxRange, *FxMin, FfComp, FfProj) : std::ranges::begin(FxRange);
-        auto LoEnd = std::ranges::lower_bound(FxRange, FxMax, FfComp, FfProj);
+            FxMin.has_value() ? std::ranges::lower_bound(FvRange, *FxMin, FfComp, FfProj) : std::ranges::begin(FvRange);
+        auto LoEnd = std::ranges::lower_bound(FvRange, FxMax, FfComp, FfProj);
         return std::ranges::borrowed_subrange_t<Range>{ LoBegin, LoEnd };
     }
 
     template <typename Bound, typename Range, typename Compare = std::less<>, typename Proj = std::identity>
     auto GetRangeWindow(
-        Range&& FxRange, const Bound& FxMin, const Bound& FxMax, Compare FfComp = {}, Proj FfProj = {}) noexcept
+        Range&& FvRange, const Bound& FxMin, const Bound& FxMax, Compare FfComp = {}, Proj FfProj = {}) noexcept
         -> std::ranges::borrowed_subrange_t<Range>
     {
-        auto LoBegin = std::ranges::lower_bound(FxRange, FxMin, FfComp, FfProj);
-        auto LoEnd = std::ranges::lower_bound(FxRange, FxMax, FfComp, FfProj);
+        auto LoBegin = std::ranges::lower_bound(FvRange, FxMin, FfComp, FfProj);
+        auto LoEnd = std::ranges::lower_bound(FvRange, FxMax, FfComp, FfProj);
         return std::ranges::borrowed_subrange_t<Range>{ LoBegin, LoEnd };
     }
 

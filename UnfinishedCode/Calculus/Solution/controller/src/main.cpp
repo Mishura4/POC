@@ -1,23 +1,24 @@
-﻿#include "Core.h"
-#include <QApplication.h>
+﻿#include <QApplication.h>
 #include <QLineSeries>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <thread>
+#include "Core.h"
 
-int main(int argc, char *argv[]) {
-  QApplication app(argc, argv);
-  Calculus::Backend backend(&app);
-  QQmlApplicationEngine engine;
+int main(int LnArgc, char* LvArgs[])
+{
+    QApplication LoApp(LnArgc, LvArgs);
+    Calculus::Backend LoBackend(&LoApp);
+    QQmlApplicationEngine LoEngine;
 
-  auto context = engine.rootContext();
+    auto LoContext = LoEngine.rootContext();
 
-  engine.rootContext()->setContextProperty("backend", &backend);
-  QQmlEngine::setContextForObject(&backend, context);
-  engine.load(QUrl(QStringLiteral("qrc:/view/Main.qml")));
-  if (engine.rootObjects().isEmpty())
-    return -1;
-  
-  backend.start();
-  return app.exec();
+    LoEngine.rootContext()->setContextProperty("backend", &LoBackend);
+    QQmlEngine::setContextForObject(&LoBackend, LoContext);
+    LoEngine.load(QUrl(QStringLiteral("qrc:/view/Main.qml")));
+    if (LoEngine.rootObjects().isEmpty())
+        return -1;
+
+    LoBackend.Start();
+    return LoApp.exec();
 }

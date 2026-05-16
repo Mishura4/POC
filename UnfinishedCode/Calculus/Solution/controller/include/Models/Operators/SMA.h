@@ -5,31 +5,28 @@
 #ifndef CALCULUS_SIMPLEMOVINGAVERAGE_H
 #define CALCULUS_SIMPLEMOVINGAVERAGE_H
 
-#include <vector>
 #include <span>
+#include <vector>
 
 #include "Operator.h"
 
-namespace Calculus::inline Models::MarketData::Operators {
+namespace Calculus::inline Models::MarketData::Operators
+{
+    class SMA final : public Operator
+    {
+    public:
+        SMA(int FnStride, QObject* FoParent, const QString& FsName);
+        explicit SMA(int FnStride, QObject* FoParent = nullptr) : SMA(FnStride, FoParent, tr("SMA %1").arg(FnStride)) {}
 
-class SMA final : public Operator {
-public:
-  SMA(int stride, QObject *parent, const QString name);
-  explicit SMA(int stride, QObject* parent = nullptr) :
-    SMA(stride, parent, tr("SMA %1").arg(stride))
-  {
-  }
+        void Reset(const MarketDataModel& FvDataSet) override;
+        auto GetX() const noexcept -> std::span<const Time> override { return MvTimestamps; }
+        auto GetY(int FnRow) const noexcept -> std::span<const double> override { return MvValues; }
 
-  void reset(const MarketDataModel& dataSet) override;
-  auto getX() const noexcept -> std::span<const Time> override { return MoTimestamps; }
-  auto getY(int row) const noexcept -> std::span<const double> override { return MoValues; }
+    private:
+        int MnStride = 1;
+        std::vector<Time> MvTimestamps;
+        std::vector<double> MvValues;
+    };
+} // namespace Calculus::inline Models::MarketData::Operators
 
-private:
-  int MnStride = 1;
-  std::vector<Time> MoTimestamps;
-  std::vector<double> MoValues;
-};
-
-}
-
-#endif //CALCULUS_SIMPLEMOVINGAVERAGE_H
+#endif // CALCULUS_SIMPLEMOVINGAVERAGE_H

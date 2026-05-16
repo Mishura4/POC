@@ -24,6 +24,6 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        backend.queryMarketData(new Date(), new Date());
+        backend.QueryMarketData(new Date(), new Date());
     }
 }

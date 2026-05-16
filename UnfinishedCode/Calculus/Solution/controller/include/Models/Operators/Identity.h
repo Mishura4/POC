@@ -5,28 +5,28 @@
 #ifndef CALCULUS_OPERATORS_IDENTITY_H
 #define CALCULUS_OPERATORS_IDENTITY_H
 
-#include <vector>
 #include <span>
+#include <vector>
 
-#include "Operators/Operator.h"
 #include "MarketData.h"
+#include "Operators/Operator.h"
 
-namespace Calculus::inline Models::MarketData::Operators {
+namespace Calculus::inline Models::MarketData::Operators
+{
+    class Identity : public Operator
+    {
+    public:
+        Identity(QObject* FoParent = nullptr, const QString& FsName = tr("Identity"));
 
-class Identity : public Operator {
-public:
-  Identity(QObject* parent = nullptr, const QString& name = tr("Identity"));
+        void Reset(const MarketDataModel& FvDataSet) override;
+        auto GetX() const noexcept -> std::span<const Time> override { return MvTimestamps; }
+        auto GetY(int FnRow) const noexcept -> std::span<const double> override { return MvValues; }
 
-  void reset(const MarketDataModel& dataSet) override;
-  auto getX() const noexcept -> std::span<const Time> override { return MoTimestamps; }
-  auto getY(int row) const noexcept -> std::span<const double> override { return MoValues; }
-
-private:
-  // TODO: We don't necessarily need to copy here maybe
-  std::vector<Time> MoTimestamps;
-  std::vector<double> MoValues;
-};
-
-}
+    private:
+        // TODO: We don't necessarily need to copy here maybe
+        std::vector<Time> MvTimestamps;
+        std::vector<double> MvValues;
+    };
+} // namespace Calculus::inline Models::MarketData::Operators
 
 #endif // CALCULUS_OPERATORS_IDENTITY_H

@@ -5,8 +5,8 @@
 #ifndef RADICALWARE_CALCULUS_MARKETPOINT_H
 #define RADICALWARE_CALCULUS_MARKETPOINT_H
 
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 #include <utility>
 
 #include <QDateTime>
@@ -14,112 +14,123 @@
 
 #include "Tools.h"
 
-namespace Calculus::inline Models::MarketData {
+namespace Calculus::inline Models::MarketData
+{
+    using Time = std::chrono::utc_time<std::chrono::milliseconds>;
+    using Value = int64_t;
 
-using Time = std::chrono::utc_time<std::chrono::milliseconds>;
-using Value = int64_t;
+    class MarketPoint
+    {
+    public:
+        using QmlValue = qreal;
+        using QmlTime = QDateTime;
 
-class MarketPoint {
-public:
-  using QmlValue = qreal;
-  using QmlTime = QDateTime;
+    private:
+        Q_GADGET
+        Q_PROPERTY(QmlTime time READ time)
+        Q_PROPERTY(QmlValue value READ value)
+        QML_VALUE_TYPE(marketData)
 
-private:
-  Q_GADGET
-  Q_PROPERTY(QmlTime time READ time)
-  Q_PROPERTY(QmlValue value READ value)
-  QML_VALUE_TYPE(marketData)
+    public:
+        constexpr MarketPoint() noexcept = default;
+        MarketPoint(QDateTime FoTime, Value FnValue) noexcept;
 
-public:
-  constexpr MarketPoint() noexcept = default;
-  MarketPoint(QDateTime time, Value value) noexcept;
+        template <typename Clock, typename Duration>
+        constexpr MarketPoint(std::chrono::time_point<Clock, Duration> time, Value FnValue) noexcept :
+            MoTime(clock_cast<Time::clock>(time_point_cast<Time::duration>(time))),
+            MnValue(FnValue)
+        {
+        }
 
-  template <typename Clock, typename Duration>
-  constexpr MarketPoint(std::chrono::time_point<Clock, Duration> time, Value value) noexcept :
-    MoTime(clock_cast<std::chrono::utc_clock>(time_point_cast<Time::duration>(time))),
-    MnValue(value)
-  {}
+        template <typename Clock, typename Duration>
+        constexpr MarketPoint(
+            std::chrono::time_point<Clock, Duration> FoTime, std::floating_point auto FnValue
+        ) noexcept :
+            MoTime(clock_cast<Time::clock>(time_point_cast<Time::duration>(FoTime))),
+            MnValue(static_cast<Value>(std::floor(FnValue * 100)))
+        {
+        }
 
-  template <typename Clock, typename Duration>
-  constexpr MarketPoint(std::chrono::time_point<Clock, Duration> time, std::floating_point auto value) noexcept :
-    MoTime(clock_cast<std::chrono::utc_clock>(time_point_cast<Time::duration>(time))),
-    MnValue(static_cast<Value>(std::floor(value * 100)))
-  {}
+        auto time() const -> QmlTime;
 
-  auto time() const -> QmlTime;
+        auto GetTime() const noexcept -> Time { return MoTime; }
 
-  auto getTime() const noexcept -> Time {
-    return MoTime;
-  }
+        auto value() const noexcept -> QmlValue { return static_cast<QmlValue>(MnValue) / 100; }
 
-  auto value() const noexcept -> QmlValue {
-    return static_cast<QmlValue>(MnValue) / 100;
-  }
+        auto GetValue() const noexcept -> Value { return MnValue; }
 
-  auto getValue() const noexcept -> Value {
-    return MnValue;
-  }
+        // std::get counterpart
+        template <size_t I>
+            requires(I == 0)
+        friend auto get(const MarketPoint& FoPoint) noexcept -> Time
+        {
+            return FoPoint.GetTime();
+        }
 
-  template <size_t I>
-  requires (I == 0)
-  friend auto get(const MarketPoint& point) noexcept -> Time {
-    return point.getTime();
-  }
+        // std::get counterpart
+        template <size_t I>
+            requires(I == 1)
+        friend auto get(const MarketPoint& FoPoint) noexcept -> Value
+        {
+            return FoPoint.GetValue();
+        }
 
-  template <size_t I>
-  requires (I == 1)
-  friend auto get(const MarketPoint& point) noexcept -> Value {
-    return point.getValue();
-  }
+        static double GetPartialValue(MarketPoint FoBefore, MarketPoint FoAfter, Time FoTime) noexcept;
 
-  static double GetPartialValue(MarketPoint before, MarketPoint after, Time time) noexcept;
+        friend QJSValue ToJSValue(const MarketPoint& FoPoint);
 
-  friend QJSValue toJSValue(const MarketPoint& point);
+    private:
+        Time MoTime;
+        Value MnValue;
+    };
 
-private:
-  Time      MoTime;
-  Value     MnValue;
-};
+    class PartialMarketPoint : public MarketPoint
+    {
+    public:
+        PartialMarketPoint(MarketPoint FoBefore, MarketPoint FoAfter, Time FoTime) noexcept;
 
-class PartialMarketPoint : public MarketPoint {
-public:
-  PartialMarketPoint(MarketPoint before, MarketPoint after, Time time) noexcept;
+    private:
+        MarketPoint MoBefore;
+        MarketPoint MoAfter;
+    };
 
-private:
-  MarketPoint MoBefore;
-  MarketPoint MoAfter;
-};
-
-}
-
-template <>
-struct std::tuple_size<Calculus::MarketData::MarketPoint> {
-  static constexpr size_t value = 2;
-};
-
-template <>
-struct std::tuple_element<0, Calculus::MarketData::MarketPoint> {
-  using type = Calculus::MarketData::Time;
-};
+} // namespace Calculus::inline Models::MarketData
 
 template <>
-struct std::tuple_element<1, Calculus::MarketData::MarketPoint> {
-  using type = Calculus::MarketData::Value;
+struct std::tuple_size<Calculus::MarketData::MarketPoint>
+{
+    static constexpr size_t value = 2;
+};
+
+template <>
+struct std::tuple_element<0, Calculus::MarketData::MarketPoint>
+{
+    using type = Calculus::MarketData::Time;
+};
+
+template <>
+struct std::tuple_element<1, Calculus::MarketData::MarketPoint>
+{
+    using type = Calculus::MarketData::Value;
 };
 
 template <typename C>
-struct std::formatter<Calculus::MarketData::MarketPoint, C> {
-  constexpr auto parse(auto& ctx) {
-    auto it = ctx.begin();
-    while (it != ctx.end() && *it != '}') {
-      ++it;
+struct std::formatter<Calculus::MarketData::MarketPoint, C>
+{
+    constexpr auto parse(auto& ctx)
+    {
+        auto it = ctx.begin();
+        while (it != ctx.end() && *it != '}')
+        {
+            ++it;
+        }
+        return it;
     }
-    return it;
-  }
 
-  auto format(const Calculus::MarketData::MarketPoint p, auto& ctx) const {
-    return std::format_to(ctx.out(), "{{{}, {}}}", p.getTime(), p.value());
-  }
+    auto format(const Calculus::MarketData::MarketPoint p, auto& ctx) const
+    {
+        return std::format_to(ctx.out(), "{{{}, {}}}", p.GetTime(), p.value());
+    }
 };
 
 #endif // RADICALWARE_CALCULUS_MARKETPOINT_H

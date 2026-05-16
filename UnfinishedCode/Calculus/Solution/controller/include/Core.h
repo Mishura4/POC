@@ -1,112 +1,120 @@
-﻿#include <thread>
-#include <QDebug>
-#include <QtGraphs/QtGraphs>
+﻿#include <QDebug>
 #include <QObject>
 #include <QRandomGenerator>
+#include <QtGraphs/QtGraphs>
 #include <QtQml>
+#include <thread>
 
 #include <RawMapping.h>
 
 #include "Models/MarketData.h"
 
-namespace Calculus {
-
-class Backend : public QObject
+namespace Calculus
 {
-  Q_OBJECT
-  Q_PROPERTY(const MarketData::MarketDataModel* model READ model CONSTANT)
+    class Backend : public QObject
+    {
+        Q_OBJECT
+        Q_PROPERTY(const MarketData::MarketDataModel* model READ Model CONSTANT)
 
-public:
-  Backend(QObject* parent = nullptr);
+    public:
+        Backend(QObject* FoParent = nullptr);
 
-  void start();
-  void run();
+        void Start();
+        void Run();
 
-  Q_INVOKABLE void queryMarketData(QDateTime start, QDateTime end, QJSValue callback = {});
+        Q_INVOKABLE void QueryMarketData(QDateTime FoStart, QDateTime FoEnd, QJSValue FoCallback = {});
 
-  const MarketData::MarketDataModel* model() const noexcept { return MoModel; }
+        const MarketData::MarketDataModel* Model() const noexcept { return MoModel; }
 
-signals:
-  void newData(qreal time, qreal value);
+    signals:
+        void newData(qreal FoTime, qreal FoValue);
 
-public slots:
-  void quit();
+    public slots:
+        void Quit();
 
-private:
-  auto doQueryMarketData(QDateTime start, QDateTime end) -> std::vector<MarketData::MarketPoint>;
+    private:
+        auto DoQueryMarketData(QDateTime FoStart, QDateTime FoEnd) -> std::vector<MarketData::MarketPoint>;
 
-  template <typename T = QJSValue>
-  auto toJSVariant(auto&& value, QQmlEngine* engine = nullptr);
+        template <typename T = QJSValue>
+        auto ToJSVariant(auto&& FxValue, QQmlEngine* FoEngine = nullptr);
 
-  template <typename Callback, typename Fun, typename... Args>
-    requires (std::invocable<Fun, Args...> && std::invocable<Callback, std::invoke_result_t<Fun, Args...>>)
-  auto runAsync(Callback&& callback, Fun&& fun, Args&&... args) -> QFuture<void>;
+        template <typename Callback, typename Fun, typename... Args>
+            requires(std::invocable<Fun, Args...> && std::invocable<Callback, std::invoke_result_t<Fun, Args...>>)
+        auto RunAsync(Callback&& FfCallback, Fun&& FfTask, Args&&... FxArgs) -> QFuture<void>;
 
-  template <typename Fun, typename... Args>
-    requires (std::invocable<Fun, Args...>)
-  auto runAsync(QJSValue callback, Fun&& fun, Args&&... args) -> QFuture<void>;
+        template <typename Fun, typename... Args>
+            requires(std::invocable<Fun, Args...>)
+        auto RunAsync(QJSValue FfCallback, Fun&& FfTask, Args&&... FxArgs) -> QFuture<void>;
 
-  MarketData::MarketDataModel* MoModel;
-  std::atomic<bool> MbQuit = false;
-  std::mutex MoMutex;
-  std::jthread MoThread;
-};
+        MarketData::MarketDataModel* MoModel;
+        std::atomic<bool> MbQuit = false;
+        std::mutex MoMutex;
+        std::jthread MoThread;
+    };
 
-template <typename T>
-auto Backend::toJSVariant(auto &&value, QQmlEngine *engine) {
-  if (engine == nullptr)
-    engine = QQmlEngine::contextForObject(this)->engine();
+    template <typename T>
+    auto Backend::ToJSVariant(auto&& FxValue, QQmlEngine* FoEngine)
+    {
+        if (FoEngine == nullptr)
+            FoEngine = QQmlEngine::contextForObject(this)->engine();
 
-  if constexpr (!std::is_void_v<T>) {
-    return T(QJSManagedValue(
-        QVariant::fromValue(std::forward<decltype(value)>(value)), engine));
-  } else {
-    return QJSManagedValue(
-        QVariant::fromValue(std::forward<decltype(value)>(value)), engine);
-  }
-}
-
-template <typename Callback, typename Fun, typename... Args>
-  requires (std::invocable<Fun, Args...> && std::invocable<Callback, std::invoke_result_t<Fun, Args...>>)
-auto Backend::runAsync(Callback &&callback, Fun &&fun, Args &&...args) -> QFuture<void> {
-  using arg_tuple = std::tuple<std::remove_cvref_t<Args>...>;
-  return QtConcurrent::run(
-    [this, cb = std::forward<Callback>(callback), fn = std::forward<Fun>(fun),
-     argt = arg_tuple(std::forward<Args>(args)...)]() mutable {
-      if constexpr (std::is_void_v<std::invoke_result_t<Fun, Args...>>) {
-        std::apply(std::forward<Fun>(fn), std::move(argt)); // Invoke fun on async thread
-        QMetaObject::invokeMethod(
-          this,
-          [cb = std::forward<Callback>(cb)] {
-            std::invoke(cb); // Run callback on app thread
-          },
-          Qt::QueuedConnection
-        );
-      } else {
-        // Invoke fun on async thread (in capture)
-        QMetaObject::invokeMethod(
-          this,
-          [cb = std::forward<Callback>(cb),
-           ret = std::apply(std::forward<Fun>(fn), std::move(argt))] {
-            std::invoke(cb, ret); // Run callback on app thread
-          },
-          Qt::QueuedConnection
-        );
-      }
+        if constexpr (!std::is_void_v<T>)
+        {
+            return T(QJSManagedValue(QVariant::fromValue(std::forward<decltype(FxValue)>(FxValue)), FoEngine));
+        }
+        else
+        {
+            return QJSManagedValue(QVariant::fromValue(std::forward<decltype(FxValue)>(FxValue)), FoEngine);
+        }
     }
-  );
-}
 
-template <typename Fun, typename... Args>
-  requires (std::invocable<Fun, Args...>)
-auto Backend::runAsync(QJSValue callback, Fun &&fun, Args&&... args) -> QFuture<void> {
-  return runAsync(
-    [this, cb = std::move(callback)]<typename... CbArgs>(CbArgs&& ...cbArgs) {
-      auto engine = QQmlEngine::contextForObject(this)->engine();
-      cb.call(QJSValueList{ this->toJSVariant(std::forward<CbArgs>(cbArgs), engine)... });
-    },
-    std::forward<Fun>(fun), std::forward<Args>(args)...
-  );
-}
+    template <typename Callback, typename Fun, typename... Args>
+        requires(std::invocable<Fun, Args...> && std::invocable<Callback, std::invoke_result_t<Fun, Args...>>)
+    auto Backend::RunAsync(Callback&& FfCallback, Fun&& FfTask, Args&&... FxArgs) -> QFuture<void>
+    {
+        using arg_tuple = std::tuple<std::remove_cvref_t<Args>...>;
+        return QtConcurrent::run(
+            [this,
+             LfCallback = std::forward<Callback>(FfCallback),
+             LfTask = std::forward<Fun>(FfTask),
+             LoArgTuple = arg_tuple(std::forward<Args>(FxArgs)...)]() mutable
+            {
+                if constexpr (std::is_void_v<std::invoke_result_t<Fun, Args...>>)
+                {
+                    std::apply(std::forward<Fun>(LfTask), std::move(LoArgTuple)); // Invoke fun on async thread
+                    QMetaObject::invokeMethod(
+                        this,
+                        [LfCallback2 = std::forward<Callback>(LfCallback)]
+                        {
+                            std::invoke(LfCallback2); // Run callback on app thread
+                        },
+                        Qt::QueuedConnection);
+                }
+                else
+                {
+                    // Invoke fun on async thread (in capture)
+                    QMetaObject::invokeMethod(
+                        this,
+                        [LfCallback2 = std::forward<Callback>(LfCallback), LoResult = std::apply(std::forward<Fun>(LfTask), std::move(LoArgTuple))]
+                        {
+                            std::invoke(LfCallback2, LoResult); // Run callback on app thread
+                        },
+                        Qt::QueuedConnection);
+                }
+            });
+    }
 
+    template <typename Fun, typename... Args>
+        requires(std::invocable<Fun, Args...>)
+    auto Backend::RunAsync(QJSValue FfCallback, Fun&& FfTask, Args&&... FxArgs) -> QFuture<void>
+    {
+        return runAsync(
+            [this, LfCallback = std::move(FfCallback)]<typename... CbArgs>(CbArgs&&... cbArgs)
+            {
+                auto LoEngine = QQmlEngine::contextForObject(this)->engine();
+                LfCallback.call(QJSValueList{ this->ToJSVariant(std::forward<CbArgs>(cbArgs), LoEngine)... });
+            },
+            std::forward<Fun>(FfTask),
+            std::forward<Args>(FxArgs)...);
+    }
 } // namespace Calculus

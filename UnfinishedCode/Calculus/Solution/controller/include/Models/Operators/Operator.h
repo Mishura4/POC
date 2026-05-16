@@ -5,64 +5,57 @@
 #ifndef CALCULUS_OPERATOR_H
 #define CALCULUS_OPERATOR_H
 
-#include <vector>
+#include <optional>
 #include <span>
 #include <tuple>
-#include <optional>
+#include <vector>
 
 #include "MarketPoint.h"
 
-namespace Calculus::inline Models::MarketData {
+namespace Calculus::inline Models::MarketData
+{
+    class MarketDataModel;
 
-class MarketDataModel;
+    class Operator : public QAbstractTableModel
+    {
+        Q_OBJECT
 
-class Operator : public QAbstractTableModel {
-  Q_OBJECT
+    public:
+        using X = Time;
+        using Y = double;
+        using Point = std::tuple<X, Y>;
+        using XColumn = std::span<const X>;
+        using YColumn = std::span<const Y>;
+        using XSubrange = std::ranges::subrange<XColumn::const_iterator>;
+        using YBounds = std::optional<std::ranges::minmax_result<Y>>;
 
-public:
-  using X = Time;
-  using Y = double;
-  using Point = std::tuple<X, Y>;
-  using XColumn = std::span<const X>;
-  using YColumn = std::span<const Y>;
-  using XSubrange = std::ranges::subrange<XColumn::const_iterator>;
-  using YBounds = std::optional<std::ranges::minmax_result<Y>>;
+        virtual void Reset(const MarketDataModel& FvDataSet) = 0;
+        virtual auto GetX() const noexcept -> XColumn = 0;
+        virtual auto GetY(int FnColumn) const noexcept -> YColumn = 0;
+        virtual auto GetYBounds(int FnColumn, std::optional<Time> FoMinX, std::optional<Time> FoMaxX) const noexcept
+            -> YBounds;
+        Q_INVOKABLE QJSValueList GetYBounds(int FnColumn, QDateTime FoMinX, QDateTime FoMaxX) const noexcept;
+        Q_INVOKABLE virtual QVariant PointClosestTo(QDateTime FoTime) const noexcept;
+        Q_INVOKABLE virtual QVariant operator[](int FnIndex) const;
+        Q_INVOKABLE QVariant At(int FnIndex) const;
 
-  virtual void reset(const MarketDataModel& dataSet) = 0;
-  virtual auto getX() const noexcept -> XColumn = 0;
-  virtual auto getY(int column) const noexcept -> YColumn = 0;
-  virtual auto getYBounds(int column, std::optional<Time> minX, std::optional<Time> maxX) const noexcept -> YBounds;
-  Q_INVOKABLE QJSValueList getYBounds(int column, QDateTime minX, QDateTime maxX) const noexcept;
-  Q_INVOKABLE virtual QVariant pointClosestTo(QDateTime time) const noexcept;
-  Q_INVOKABLE virtual QVariant operator[](int index) const;
-  Q_INVOKABLE QVariant at(int index) const;
+        static auto GetTimeRange(const XColumn& FvValues, Time FoMin, Time FoMax) noexcept -> XSubrange;
 
-  static auto getTimeRange(const XColumn& values, Time min, Time max) noexcept -> XSubrange;
+        // Qt overrides
+        int rowCount(const QModelIndex& FoParent) const override { return MnSize; }
+        int columnCount(const QModelIndex& FoParent) const override { return MnColumnCount + 1; }
+        QVariant data(const QModelIndex& FoIndex, int FnRole) const override;
 
-  int rowCount(const QModelIndex &parent) const override { return MnSize; }
-  int columnCount(const QModelIndex &parent) const override { return MnColumnCount + 1; }
-  QVariant data(const QModelIndex &index, int role) const override;
+    protected:
+        explicit Operator(QObject* FoParent, const QString& FsName, int FnColumnCount, int FnStartOffset = 0, int FnSize = 0);
 
-protected:
-  explicit Operator(QObject* parent, const QString& name, int columnCount, int startOffset = 0, int size = 0);
+        constexpr void SetSize(int FnNewSize) noexcept { MnSize = FnNewSize; }
 
-  constexpr void setSize(int newSize) noexcept { MnSize = newSize; }
+    private:
+        int MnColumnCount;
+        int MnStartOffset = 0;
+        int MnSize = 0;
+    };
+} // namespace Calculus::inline Models::MarketData
 
-private:
-  int MnColumnCount;
-  int MnStartOffset = 0;
-  int MnSize = 0;
-};
-
-template <typename Tuple, typename Getter = TupleGetter<0>, typename X = std::invoke_result_t<Getter, Tuple>>
-static Tuple InterpolateTuple(X x, Tuple low, Tuple high, Getter getter = {}) noexcept {
-  auto factor = InvLerp(x, getter(low), getter(high));
-  return Tuple{
-    lerp(factor, tuple_get<0>(low), tuple_get<0>(high)),
-    lerp(factor, tuple_get<0>(high), tuple_get<1>(high)),
-  };
-}
-
-}
-
-#endif //CALCULUS_OPERATOR_H
+#endif // CALCULUS_OPERATOR_H
