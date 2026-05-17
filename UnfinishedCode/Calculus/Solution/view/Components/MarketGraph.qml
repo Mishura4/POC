@@ -29,6 +29,17 @@ Item {
 
     readonly property var model: backend.model ? backend.model : []
 
+    onModelChanged: () => {
+        chart.loadLines();
+    }
+
+    Connections {
+        target: model
+        function onDataChanged(topLeft, topRight) {
+            chart.cropY();
+        }
+    }
+
     function getOpeningTime(now) {
         if (now === undefined)
             now = new Date();
@@ -88,33 +99,6 @@ Item {
             min: yVisualMin
             max: yVisualMax
             tickInterval: -1
-        }
-
-        LineSeries {
-            id: lineSeries
-            name: "Line"
-
-            XYModelMapper {
-                model: marketGraph.model
-                orientation: Qt.Vertical
-                series: lineSeries
-                xSection: 0
-                ySection: 1
-            }
-        }
-
-        // TODO: Remove this and dynamically populate them using marketGraph.model.operators
-        LineSeries {
-            id: lineSeriesSMA
-            name: "SMA Line"
-
-            XYModelMapper {
-                model: marketGraph.model.operators[1]
-                orientation: Qt.Vertical
-                series: lineSeriesSMA
-                xSection: 0
-                ySection: 1
-            }
         }
 
         // Handles Zoom
@@ -255,8 +239,40 @@ Item {
         }
 
         function cropY(minX = new Date(xVisualMin), maxX = new Date(xVisualMax)) {
-            let bounds = marketGraph.model.GetBoundsY(minX, maxX);
+            let bounds = undefined;
+            chart.seriesList.forEach((list) =>
+            {
+                if (!list.visible)
+                    return;
+
+                let model = list.mapper?.model;
+                if (model === undefined)
+                    return;
+
+                for (let i = 0; i < (model.columnCount() - 1); ++i)
+                {
+                    let operatorBounds = model.GetYBounds(i, minX, maxX);
+                    if (operatorBounds === undefined || operatorBounds === null)
+                        continue;
+
+                    if (bounds === undefined)
+                    {
+                        bounds = operatorBounds;
+                        continue;
+                    }
+
+                    if (bounds[0] > operatorBounds[0])
+                        bounds[0] = operatorBounds[0];
+
+                    if (bounds[1] < operatorBounds[1])
+                        bounds[1] = operatorBounds[1];
+                }
+            });
+
             if (bounds === undefined || bounds === null)
+                return;
+
+            if (bounds[1] <= bounds[0])
                 return;
 
             yVisualMin = bounds[0];
@@ -304,30 +320,22 @@ Item {
             cropY();
         }
 
-        Component.onCompleted: () => {
-            loadLines();
-        }
+        final readonly property Component marketLine: Qt.createComponent("MarketLine.qml")
 
         function loadLines() {
-            /* WIP
-                if (marketGraph.model?.operators === undefined)
-                    return;
+            if (marketGraph.model?.operators === undefined)
+                return;
 
-                let lists = [];
-                marketGraph.model.operators.forEach((op) => {
-                    let line = new LineSeries();
-                    let model = new XYModelMapper;
-                    model.model = op;
-                    model.orientation = Qt.Vertical;
-                    model.series = line;
-                    model.xSection = 0;
-                    model.ySection = 1;
-                    line.name = op.name;
-                    line.children = [model];
-                    lists.push(line);
-                });
-                marketGraph.seriesList = lists;
-            */
+            let lists = [];
+            marketGraph.model.operators.forEach((op) => {
+                let line = marketLine.createObject(chart);
+                let model = line.mapper;
+                model.model = op;
+                line.name = op.name ?? "Line";
+                lists.push(line);
+            });
+            seriesList.forEach(list => list.destroy());
+            seriesList = lists;
         }
     } // ChartView
 }

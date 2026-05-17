@@ -10,5 +10,6 @@
         <file>resource/backdrops/SectionBar/Section_On.png</file>
         <file>resource/backdrops/SectionBar/Section_Off.png</file>
         <file alias="view/MarketGraph.qml">view/Components/MarketGraph.qml</file>
+        <file alias="view/MarketLine.qml">view/Components/MarketLine.qml</file>
     </qresource>
 </RCC>
