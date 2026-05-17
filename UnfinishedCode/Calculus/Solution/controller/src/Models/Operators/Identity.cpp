@@ -28,4 +28,16 @@ namespace Calculus::inline Models::MarketData::Operators
         SetSize(static_cast<int>(std::ranges::size(MvTimestamps)));
         endResetModel();
     }
+
+    void Identity::Clear()
+    {
+        if (MvTimestamps.empty() && MvValues.empty())
+            return;
+
+        beginResetModel();
+        MvTimestamps.clear();
+        MvValues.clear();
+        SetSize(0);
+        endResetModel();
+    }
 } // namespace Calculus::inline Models::MarketData::Operators

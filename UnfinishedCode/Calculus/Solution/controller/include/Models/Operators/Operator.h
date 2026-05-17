@@ -21,6 +21,8 @@ namespace Calculus::inline Models::MarketData
         Q_OBJECT
 
     public:
+        Q_PROPERTY(MarketDataModel* model READ GetModel WRITE SetModel NOTIFY modelChanged)
+
         using X = Time;
         using Y = double;
         using Point = std::tuple<X, Y>;
@@ -29,7 +31,11 @@ namespace Calculus::inline Models::MarketData
         using XSubrange = std::ranges::subrange<XColumn::const_iterator>;
         using YBounds = std::optional<std::ranges::minmax_result<Y>>;
 
+        void SetModel(MarketDataModel* FoDataModel);
+        auto GetModel() const noexcept -> MarketDataModel* { return MoDataModel; }
+
         virtual void Reset(const MarketDataModel& FvDataSet) = 0;
+        virtual void Clear() = 0;
         virtual auto GetX() const noexcept -> XColumn = 0;
         virtual auto GetY(int FnColumn) const noexcept -> YColumn = 0;
         virtual auto GetYBounds(int FnColumn, std::optional<Time> FoMinX, std::optional<Time> FoMaxX) const noexcept
@@ -46,14 +52,21 @@ namespace Calculus::inline Models::MarketData
         int columnCount(const QModelIndex& FoParent) const override { return MnColumnCount + 1; }
         QVariant data(const QModelIndex& FoIndex, int FnRole) const override;
 
+    protected slots:
+        virtual void onDataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight, const QList<int> &roles = QList<int>());
+        void Reset();
+
+    signals:
+        void modelChanged();
+
     protected:
-        explicit Operator(QObject* FoParent, const QString& FsName, int FnColumnCount, int FnStartOffset = 0, int FnSize = 0);
+        explicit Operator(QObject* FoParent, const QString& FsName, int FnColumnCount);
 
         constexpr void SetSize(int FnNewSize) noexcept { MnSize = FnNewSize; }
 
     private:
-        int MnColumnCount;
-        int MnStartOffset = 0;
+        MarketDataModel* MoDataModel = nullptr;
+        int MnColumnCount = 0;
         int MnSize = 0;
     };
 } // namespace Calculus::inline Models::MarketData

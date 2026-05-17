@@ -29,10 +29,6 @@ Item {
 
     readonly property var model: backend.model ? backend.model : []
 
-    onModelChanged: () => {
-        chart.loadLines();
-    }
-
     Connections {
         target: model
         function onDataChanged(topLeft, topRight) {
@@ -99,6 +95,37 @@ Item {
             min: yVisualMin
             max: yVisualMax
             tickInterval: -1
+        }
+
+        LineSeries {
+            id: seriesMain
+            name: "Main Line"
+
+            final readonly property XYModelMapper mapper: XYModelMapper {
+                model: Identity {
+                    model: marketGraph.model
+                }
+                orientation: Qt.Vertical
+                series: seriesMain
+                xSection: 0
+                ySection: 1
+            }
+        }
+
+        LineSeries {
+            id: seriesSMA14
+            name: "SMA 14 Line"
+
+            final readonly property XYModelMapper mapper: XYModelMapper {
+                model: SMA {
+                    model: marketGraph.model
+                    stride: 14
+                }
+                orientation: Qt.Vertical
+                series: seriesSMA14
+                xSection: 0
+                ySection: 1
+            }
         }
 
         // Handles Zoom
@@ -321,21 +348,5 @@ Item {
         }
 
         final readonly property Component marketLine: Qt.createComponent("MarketLine.qml")
-
-        function loadLines() {
-            if (marketGraph.model?.operators === undefined)
-                return;
-
-            let lists = [];
-            marketGraph.model.operators.forEach((op) => {
-                let line = marketLine.createObject(chart);
-                let model = line.mapper;
-                model.model = op;
-                line.name = op.name ?? "Line";
-                lists.push(line);
-            });
-            seriesList.forEach(list => list.destroy());
-            seriesList = lists;
-        }
     } // ChartView
 }

@@ -5,6 +5,8 @@
 #include <chrono>
 
 #include "Models/Operators/Operator.h"
+
+#include "MarketData.h"
 #include "Tools.h"
 
 namespace Calculus::inline Models::MarketData
@@ -13,12 +15,35 @@ namespace Calculus::inline Models::MarketData
     // std::optional<std::ranges::minmax_result<double>> {  }
 
     Operator::Operator(
-        QObject* FoParent, const QString& FsName, int FnColumnCount, int FnStartOffset, int FnSize
-    ) :
-        QAbstractTableModel(FoParent), MnColumnCount(FnColumnCount), MnStartOffset(FnStartOffset),
-        MnSize(FnSize)
+        QObject* FoParent, const QString& FsName, int FnColumnCount
+    ) : QAbstractTableModel(FoParent),
+        MnColumnCount(FnColumnCount)
     {
         setObjectName(FsName);
+    }
+
+    void Operator::SetModel(MarketDataModel* FoDataModel)
+    {
+        if (FoDataModel == MoDataModel)
+            return;
+
+        if (MoDataModel != nullptr)
+        {
+            QObject::disconnect(MoDataModel, &QAbstractItemModel::dataChanged, this, &Operator::onDataChanged);
+            QObject::disconnect(MoDataModel, &QAbstractItemModel::modelReset, this, static_cast<void (Operator::*)()>(&Operator::Reset));
+        }
+        MoDataModel = FoDataModel;
+        if (MoDataModel == nullptr)
+        {
+            Clear();
+        }
+        else
+        {
+            QObject::connect(MoDataModel, &QAbstractItemModel::dataChanged, this, &Operator::onDataChanged);
+            QObject::connect(MoDataModel, &QAbstractItemModel::modelReset, this, static_cast<void (Operator::*)()>(&Operator::Reset));
+            Reset(*MoDataModel);
+        }
+        emit modelChanged();
     }
 
     QVariant Operator::data(const QModelIndex& FoIndex, int FnRole) const
@@ -41,6 +66,21 @@ namespace Calculus::inline Models::MarketData
         }
 
         return GetY(LnColumnIndex - 1)[LnRowIndex];
+    }
+
+    void Operator::onDataChanged(
+        const QModelIndex& topLeft, const QModelIndex& bottomRight, const QList<int>& roles
+    )
+    {
+        Reset(*MoDataModel);
+    }
+
+    void Operator::Reset()
+    {
+        if (MoDataModel)
+            Reset(*MoDataModel);
+        else
+            Clear();
     }
 
     auto Operator::GetYBounds(

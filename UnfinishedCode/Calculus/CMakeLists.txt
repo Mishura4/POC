@@ -34,7 +34,8 @@ add_compile_definitions(QT_QML_DEBUG)
 
 include_directories(
     "${CMAKE_CURRENT_SOURCE_DIR}/Solution/controller/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Solution/controller/include/Models"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Solution/controller/include/Models"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Solution/controller/include/Models/Operators"
 )
 
 BuildRadicalQt6Solution(PrivateLibs PublicLibs)
